@@ -3,10 +3,17 @@ QT += sql
 
 TEMPLATE = lib
 CONFIG += shared
-VERSION = 0.6.2
 TARGET = QtORM
 DEFINES += NORM_LIBRARY
 CONFIG += c++11
+
+# 版本号
+win32{
+    RC_FILE += ./NORM_resource.rc
+}
+unix{
+    VERSION = 1.0.1
+}
 
 # 源码信息
 include($$PWD/NORM_src.pri)
