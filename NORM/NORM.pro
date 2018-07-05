@@ -3,7 +3,7 @@ QT += sql
 
 TEMPLATE = lib
 CONFIG += shared
-TARGET = QtORM
+TARGET = NORM
 DEFINES += NORM_LIBRARY
 CONFIG += c++11
 
