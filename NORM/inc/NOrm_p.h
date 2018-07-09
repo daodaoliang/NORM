@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2010-2015 Jeremy Lainé
- * Contact: https://github.com/jlaine/qdjango
- *
- * This file is part of the QDjango Library.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- */
-
 #ifndef QDJANGO_P_H
 #define QDJANGO_P_H
 
@@ -32,17 +15,17 @@
 #  define NORMSHARED_EXPORT Q_DECL_IMPORT
 #endif
 
-/** \brief The QDjangoDatabase class represents a set of connections to a
+/** \brief The NOrmDatabase class represents a set of connections to a
  *  database.
  *
  * \internal
  */
-class NORMSHARED_EXPORT QDjangoDatabase : public QObject
+class NORMSHARED_EXPORT NOrmDatabase : public QObject
 {
     Q_OBJECT
 
 public:
-    QDjangoDatabase(QObject *parent = 0);
+    NOrmDatabase(QObject *parent = 0);
 
     enum DatabaseType {
         UnknownDB,
@@ -67,10 +50,10 @@ private slots:
     void threadFinished();
 };
 
-class NORMSHARED_EXPORT QDjangoQuery : public QSqlQuery
+class NORMSHARED_EXPORT NOrmQuery : public QSqlQuery
 {
 public:
-    QDjangoQuery(QSqlDatabase db);
+    NOrmQuery(QSqlDatabase db);
     void addBindValue(const QVariant &val, QSql::ParamType paramType = QSql::In);
     bool exec();
     bool exec(const QString &query);

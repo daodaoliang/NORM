@@ -1,20 +1,3 @@
-/*
- * Copyright (C) 2010-2015 Jeremy Lainé
- * Contact: https://github.com/jlaine/qdjango
- *
- * This file is part of the QDjango Library.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- */
-
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
@@ -25,23 +8,23 @@
 #include <QThread>
 #include <QStack>
 
-#include "QDjango.h"
+#include "NOrm.h"
 
 static const char *connectionPrefix = "_qdjango_";
 
-QMap<QByteArray, QDjangoMetaModel> globalMetaModels = QMap<QByteArray, QDjangoMetaModel>();
-static QDjangoDatabase *globalDatabase = 0;
-static QDjangoDatabase::DatabaseType globalDatabaseType = QDjangoDatabase::UnknownDB;
+QMap<QByteArray, NOrmMetaModel> globalMetaModels = QMap<QByteArray, NOrmMetaModel>();
+static NOrmDatabase *globalDatabase = 0;
+static NOrmDatabase::DatabaseType globalDatabaseType = NOrmDatabase::UnknownDB;
 static bool globalDebugEnabled = false;
 
 /// \cond
 
-QDjangoDatabase::QDjangoDatabase(QObject *parent)
+NOrmDatabase::NOrmDatabase(QObject *parent)
     : QObject(parent), connectionId(0)
 {
 }
 
-void QDjangoDatabase::threadFinished()
+void NOrmDatabase::threadFinished()
 {
     QThread *thread = qobject_cast<QThread*>(sender());
     if (!thread)
@@ -62,57 +45,72 @@ static void closeDatabase()
     globalDatabase = 0;
 }
 
-static QDjangoDatabase::DatabaseType getDatabaseType(QSqlDatabase &db)
+static NOrmDatabase::DatabaseType getDatabaseType(QSqlDatabase &db)
 {
     const QString driverName = db.driverName();
     if (driverName == QLatin1String("QMYSQL") ||
         driverName == QLatin1String("QMYSQL3"))
-        return QDjangoDatabase::MySqlServer;
+        return NOrmDatabase::MySqlServer;
     else if (driverName == QLatin1String("QSQLITE") ||
              driverName == QLatin1String("QSQLITE2"))
-        return QDjangoDatabase::SQLite;
+        return NOrmDatabase::SQLite;
     else if (driverName == QLatin1String("QPSQL"))
-        return QDjangoDatabase::PostgreSQL;
+        return NOrmDatabase::PostgreSQL;
     else if (driverName == QLatin1String("QODBC")) {
         QSqlQuery query(db);
         if (query.exec("SELECT sqlite_version()"))
-            return QDjangoDatabase::SQLite;
+            return NOrmDatabase::SQLite;
 
         if (query.exec("SELECT @@version") && query.next() &&
             query.value(0).toString().contains("Microsoft SQL Server"))
-                return QDjangoDatabase::MSSqlServer;
+                return NOrmDatabase::MSSqlServer;
 
         if (query.exec("SELECT version()") && query.next()) {
             if (query.value(0).toString().contains("PostgreSQL"))
-                return QDjangoDatabase::PostgreSQL;
+                return NOrmDatabase::PostgreSQL;
             else
-                return QDjangoDatabase::MySqlServer;
+                return NOrmDatabase::MySqlServer;
         }
     }
-    return QDjangoDatabase::UnknownDB;
+    return NOrmDatabase::UnknownDB;
 }
 
-static void initDatabase(QSqlDatabase db)
+static bool initDatabase(QSqlDatabase db)
 {
-    QDjangoDatabase::DatabaseType databaseType = QDjangoDatabase::databaseType(db);
-    if (databaseType == QDjangoDatabase::SQLite) {
+    NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);
+    if (databaseType == NOrmDatabase::SQLite) {
         // enable foreign key constraint handling
-        QDjangoQuery query(db);
+        NOrmQuery query(db);
         query.prepare("PRAGMA foreign_keys=on");
         query.exec();
+    } else if (databaseType == NOrmDatabase::MySqlServer) {
+        // create db if not exist
+        QSqlDatabase tmpDB = QSqlDatabase::addDatabase("QMYSQL","tmp_connection");
+        tmpDB.setHostName(db.hostName());
+        tmpDB.setPassword(db.password());
+        tmpDB.setPort(db.port());
+        tmpDB.setUserName(db.userName());
+        if(!tmpDB.open()){
+            qWarning()<<"db open error:"<<tmpDB.lastError().text();
+            return false;
+        }
+        tmpDB.exec(QObject::tr("CREATE SCHEMA IF NOT EXISTS `%1`  DEFAULT CHARACTER SET utf8 ;").arg(db.databaseName()));
+        tmpDB.exec(QObject::tr("use %1;").arg(db.databaseName()));
+//        QSqlDatabase::removeDatabase("tmp_connection");
     }
+    return true;
 }
 
-QDjangoQuery::QDjangoQuery(QSqlDatabase db)
+NOrmQuery::NOrmQuery(QSqlDatabase db)
     : QSqlQuery(db)
 {
-    if (QDjangoDatabase::databaseType(db) == QDjangoDatabase::MSSqlServer) {
+    if (NOrmDatabase::databaseType(db) == NOrmDatabase::MSSqlServer) {
         // default to fast-forward cursor
         setForwardOnly(true);
     }
 }
 
-void QDjangoQuery::addBindValue(const QVariant &val, QSql::ParamType paramType)
+void NOrmQuery::addBindValue(const QVariant &val, QSql::ParamType paramType)
 {
     // this hack is required so that we do not store a mix of local
     // and UTC times
@@ -122,7 +120,7 @@ void QDjangoQuery::addBindValue(const QVariant &val, QSql::ParamType paramType)
         QSqlQuery::addBindValue(val, paramType);
 }
 
-bool QDjangoQuery::exec()
+bool NOrmQuery::exec()
 {
     if (globalDebugEnabled) {
         qDebug() << "SQL query" << lastQuery();
@@ -141,7 +139,7 @@ bool QDjangoQuery::exec()
     return true;
 }
 
-bool QDjangoQuery::exec(const QString &query)
+bool NOrmQuery::exec(const QString &query)
 {
     if (globalDebugEnabled)
         qDebug() << "SQL query" << query;
@@ -164,7 +162,7 @@ bool QDjangoQuery::exec(const QString &query)
 
     \sa setDatabase()
 */
-QSqlDatabase QDjango::database()
+QSqlDatabase NOrm::database()
 {
     if (!globalDatabase)
         return QSqlDatabase();
@@ -196,19 +194,21 @@ QSqlDatabase QDjango::database()
 
     \sa database()
 */
-void QDjango::setDatabase(QSqlDatabase database)
+bool NOrm::setDatabase(QSqlDatabase database)
 {
     globalDatabaseType = getDatabaseType(database);
-    if (globalDatabaseType == QDjangoDatabase::UnknownDB) {
+    if (globalDatabaseType == NOrmDatabase::UnknownDB) {
         qWarning() << "Unsupported database driver" << database.driverName();
     }
 
     if (!globalDatabase) {
-        globalDatabase = new QDjangoDatabase();
+        globalDatabase = new NOrmDatabase();
         qAddPostRoutine(closeDatabase);
     }
-    initDatabase(database);
+    bool ret = initDatabase(database);
+    bool ret_openDB = database.open();
     globalDatabase->reference = database;
+    return ret && ret_openDB;
 }
 
 /*!
@@ -216,7 +216,7 @@ void QDjango::setDatabase(QSqlDatabase database)
 
     \sa setDebugEnabled()
 */
-bool QDjango::isDebugEnabled()
+bool NOrm::isDebugEnabled()
 {
     return globalDebugEnabled;
 }
@@ -226,16 +226,16 @@ bool QDjango::isDebugEnabled()
 
     \sa isDebugEnabled()
 */
-void QDjango::setDebugEnabled(bool enabled)
+void NOrm::setDebugEnabled(bool enabled)
 {
     globalDebugEnabled = enabled;
 }
 
 static void qdjango_topsort(const QByteArray &modelName, QHash<QByteArray, bool> &visited,
-                            QStack<QDjangoMetaModel> &stack)
+                            QStack<NOrmMetaModel> &stack)
 {
     visited[modelName] = true;
-    QDjangoMetaModel model = globalMetaModels[modelName];
+    NOrmMetaModel model = globalMetaModels[modelName];
     foreach (const QByteArray &foreignModel, model.foreignFields().values()) {
         if (!visited[foreignModel])
             qdjango_topsort(foreignModel, visited, stack);
@@ -244,9 +244,9 @@ static void qdjango_topsort(const QByteArray &modelName, QHash<QByteArray, bool>
     stack.push(model);
 }
 
-static QStack<QDjangoMetaModel> qdjango_sorted_metamodels()
+static QStack<NOrmMetaModel> qdjango_sorted_metamodels()
 {
-    QStack<QDjangoMetaModel> stack;
+    QStack<NOrmMetaModel> stack;
     stack.reserve(globalMetaModels.size());
     QHash<QByteArray, bool> visited;
     visited.reserve(globalMetaModels.size());
@@ -266,11 +266,11 @@ static QStack<QDjangoMetaModel> qdjango_sorted_metamodels()
 
     \return true if all the tables were created, false otherwise.
 */
-bool QDjango::createTables()
+bool NOrm::createTables()
 {
     bool result = true;
-    QStack<QDjangoMetaModel> stack = qdjango_sorted_metamodels();
-    foreach (const QDjangoMetaModel &model, stack) {
+    QStack<NOrmMetaModel> stack = qdjango_sorted_metamodels();
+    foreach (const NOrmMetaModel &model, stack) {
         if (!model.createTable())
             result = false;
     }
@@ -283,12 +283,12 @@ bool QDjango::createTables()
 
     \return true if all the tables were dropped, false otherwise.
 */
-bool QDjango::dropTables()
+bool NOrm::dropTables()
 {
     bool result = true;
-    QStack<QDjangoMetaModel> stack = qdjango_sorted_metamodels();
+    QStack<NOrmMetaModel> stack = qdjango_sorted_metamodels();
     for (int i = stack.size() - 1; i >= 0; --i) {
-        QDjangoMetaModel model = stack.at(i);
+        NOrmMetaModel model = stack.at(i);
         if (!model.dropTable())
             result = false;
     }
@@ -296,10 +296,7 @@ bool QDjango::dropTables()
     return result;
 }
 
-/*!
-    Returns the QDjangoMetaModel with the given \a name.
- */
-QDjangoMetaModel QDjango::metaModel(const char *name)
+NOrmMetaModel NOrm::metaModel(const char *name)
 {
     if (globalMetaModels.contains(name))
         return globalMetaModels.value(name);
@@ -310,18 +307,18 @@ QDjangoMetaModel QDjango::metaModel(const char *name)
             return globalMetaModels.value(modelName);
     }
 
-    return QDjangoMetaModel();
+    return NOrmMetaModel();
 }
 
-QDjangoMetaModel QDjango::registerModel(const QMetaObject *meta)
+NOrmMetaModel NOrm::registerModel(const QMetaObject *meta)
 {
     const QByteArray name = meta->className();
     if (!globalMetaModels.contains(name))
-        globalMetaModels.insert(name, QDjangoMetaModel(meta));
+        globalMetaModels.insert(name, NOrmMetaModel(meta));
     return globalMetaModels[name];
 }
 
-QDjangoDatabase::DatabaseType QDjangoDatabase::databaseType(const QSqlDatabase &db)
+NOrmDatabase::DatabaseType NOrmDatabase::databaseType(const QSqlDatabase &db)
 {
     Q_UNUSED(db);
     return globalDatabaseType;

@@ -1,49 +1,12 @@
-/*
- * Copyright (C) 2010-2015 Jeremy Lainé
- * Copyright (C) 2011 Mathias Hasselmann
- * Contact: https://github.com/jlaine/qdjango
- *
- * This file is part of the QDjango Library.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- */
-
 #ifndef QDJANGO_QUERYSET_H
 #define QDJANGO_QUERYSET_H
 
-#include "QDjango.h"
-#include "QDjangoWhere.h"
-#include "QDjangoQuerySet_p.h"
+#include "NOrm.h"
+#include "NOrmWhere.h"
+#include "NOrmQuerySet_p.h"
 
-/** \brief The QDjangoQuerySet class is a template class for performing
- *   database queries.
- *
- *  The QDjangoQuerySet template class allows you to define and manipulate
- *  sets of QDjangoModel objects stored in the database.
- *
- *  You can chain filter expressions using the filter() and exclude() methods
- *  or apply limits on the number of rows using the limit() method.
- *
- *  You can retrieve database values using the values() and valuesList()
- *  methods or retrieve model instances using the get() and at() methods.
- *
- *  You can also delete sets of objects using the remove() method.
- *
- *  Behinds the scenes, the QDjangoQuerySet class uses implicit sharing to
- *  reduce memory usage and avoid needless copying of data.
- *
- * \ingroup Database
- */
 template <class T>
-    class QDjangoQuerySet
+    class NOrmQuerySet
 {
 public:
     /** \cond declarations for STL-style container algorithms */
@@ -56,28 +19,9 @@ public:
     typedef qptrdiff difference_type;
     /** \endcond */
 
-    /** The QDjangoQuerySet::const_iterator class provides an STL-style const iterator
-     *  for QDjangoQuerySet.
-     *
-     *  QDjangoQuerySet::const_iterator allows you to iterate over a QDjangoQuerySet.
-     *  As a const iterator it doesn't permit you to modify the QDjangoQuerySet.
-     *
-     *  The default QDjangoQuerySet::const_iterator constructor creates an uninitialized iterator. You must
-     *  initialize it using a QDjangoQuerySet function like QDjangoQuerySet::constBegin(), or
-     *  QDjangoQuerySet::constEnd() before you can start iterating. Here's a typical loop that
-     *  prints all the objects stored in a set:
-     *
-     *  \code
-     *  QDjangoQuerySet<Weblog::Post> posts;
-     *
-     *  foreach(const Weblog::Post &p, posts) {
-     *      cout << p << endl;
-     *  }
-     *  \endcode
-     */
     class const_iterator
     {
-        friend class QDjangoQuerySet;
+        friend class NOrmQuerySet;
 
     public:
         /** A synonym for std::bidirectional_iterator_tag indicating this iterator
@@ -92,13 +36,6 @@ public:
         typedef T &reference;
         /** \endcond */
 
-        /** Constructs an uninitialized iterator.
-         *
-         *  Functions like operator*() and operator++() should not be called on an uninitialized
-         *  iterator. Use const_iterator::operator=() to assign a value to it before using it.
-         *
-         *  \sa See also QDjangoQuerySet::constBegin() and QDjangoQuerySet::constEnd().
-         */
         const_iterator()
             : m_querySet(0)
             , m_fetched(-1)
@@ -116,7 +53,7 @@ public:
         }
 
     private:
-        const_iterator(const QDjangoQuerySet<T> *querySet, int offset = 0)
+        const_iterator(const NOrmQuerySet<T> *querySet, int offset = 0)
             : m_querySet(querySet)
             , m_fetched(-1)
             , m_offset(offset)
@@ -267,7 +204,7 @@ public:
         const T *t() const
         {
             if (m_fetched != m_offset && m_querySet) {
-                if (const_cast<QDjangoQuerySet<T> *>(m_querySet)->at(m_offset, &m_object)) {
+                if (const_cast<NOrmQuerySet<T> *>(m_querySet)->at(m_offset, &m_object)) {
                     m_fetched = m_offset;
                 }
             }
@@ -276,7 +213,7 @@ public:
         }
 
     private:
-        const QDjangoQuerySet<T> *m_querySet;
+        const NOrmQuerySet<T> *m_querySet;
         mutable int m_fetched;
         mutable T m_object;
 
@@ -286,21 +223,21 @@ public:
     /** Qt-style synonym for QDjangoQuerySet::const_iterator. */
     typedef const_iterator ConstIterator;
 
-    QDjangoQuerySet();
-    QDjangoQuerySet(const QDjangoQuerySet<T> &other);
-    ~QDjangoQuerySet();
+    NOrmQuerySet();
+    NOrmQuerySet(const NOrmQuerySet<T> &other);
+    ~NOrmQuerySet();
 
-    QDjangoQuerySet all() const;
-    QDjangoQuerySet exclude(const QDjangoWhere &where) const;
-    QDjangoQuerySet filter(const QDjangoWhere &where) const;
-    QDjangoQuerySet limit(int pos, int length = -1) const;
-    QDjangoQuerySet none() const;
-    QDjangoQuerySet orderBy(const QStringList &keys) const;
-    QDjangoQuerySet selectRelated(const QStringList &relatedFields = QStringList()) const;
+    NOrmQuerySet all() const;
+    NOrmQuerySet exclude(const NOrmWhere &where) const;
+    NOrmQuerySet filter(const NOrmWhere &where) const;
+    NOrmQuerySet limit(int pos, int length = -1) const;
+    NOrmQuerySet none() const;
+    NOrmQuerySet orderBy(const QStringList &keys) const;
+    NOrmQuerySet selectRelated(const QStringList &relatedFields = QStringList()) const;
 
     int count() const;
-    QVariant aggregate(const QDjangoWhere::AggregateType func, const QString& field) const;
-    QDjangoWhere where() const;
+    QVariant aggregate(const NOrmWhere::AggregateType func, const QString& field) const;
+    NOrmWhere where() const;
 
     bool remove();
     int size();
@@ -308,7 +245,7 @@ public:
     QList<QVariantMap> values(const QStringList &fields = QStringList());
     QList<QVariantList> valuesList(const QStringList &fields = QStringList());
 
-    T *get(const QDjangoWhere &where, T *target = 0) const;
+    T *get(const NOrmWhere &where, T *target = 0) const;
     T *at(int index, T *target = 0);
 
     const_iterator constBegin() const;
@@ -317,18 +254,18 @@ public:
     const_iterator constEnd() const;
     const_iterator end() const;
 
-    QDjangoQuerySet<T> &operator=(const QDjangoQuerySet<T> &other);
+    NOrmQuerySet<T> &operator=(const NOrmQuerySet<T> &other);
 
 private:
-    QDjangoQuerySetPrivate *d;
+    NOrmQuerySetPrivate *d;
 };
 
 /** Constructs a new queryset.
  */
 template <class T>
-QDjangoQuerySet<T>::QDjangoQuerySet()
+NOrmQuerySet<T>::NOrmQuerySet()
 {
-    d = new QDjangoQuerySetPrivate(T::staticMetaObject.className());
+    d = new NOrmQuerySetPrivate(T::staticMetaObject.className());
 }
 
 /** Constructs a copy of \a other.
@@ -336,7 +273,7 @@ QDjangoQuerySet<T>::QDjangoQuerySet()
  * \param other
  */
 template <class T>
-QDjangoQuerySet<T>::QDjangoQuerySet(const QDjangoQuerySet<T> &other)
+NOrmQuerySet<T>::NOrmQuerySet(const NOrmQuerySet<T> &other)
 {
     other.d->counter.ref();
     d = other.d;
@@ -345,7 +282,7 @@ QDjangoQuerySet<T>::QDjangoQuerySet(const QDjangoQuerySet<T> &other)
 /** Destroys the queryset.
  */
 template <class T>
-QDjangoQuerySet<T>::~QDjangoQuerySet()
+NOrmQuerySet<T>::~NOrmQuerySet()
 {
     if (!d->counter.deref())
         delete d;
@@ -362,7 +299,7 @@ QDjangoQuerySet<T>::~QDjangoQuerySet()
  * \param target optional existing model instance.
  */
 template <class T>
-T *QDjangoQuerySet<T>::at(int index, T *target)
+T *NOrmQuerySet<T>::at(int index, T *target)
 {
     T *entry = target ? target : new T;
     if (!d->sqlLoad(entry, index))
@@ -379,7 +316,7 @@ T *QDjangoQuerySet<T>::at(int index, T *target)
  *  \sa begin() and constEnd().
  */
 template <class T>
-typename QDjangoQuerySet<T>::const_iterator QDjangoQuerySet<T>::constBegin() const
+typename NOrmQuerySet<T>::const_iterator NOrmQuerySet<T>::constBegin() const
 {
     return const_iterator(this);
 }
@@ -389,7 +326,7 @@ typename QDjangoQuerySet<T>::const_iterator QDjangoQuerySet<T>::constBegin() con
  *  \sa constBegin() and end().
  */
 template <class T>
-typename QDjangoQuerySet<T>::const_iterator QDjangoQuerySet<T>::begin() const
+typename NOrmQuerySet<T>::const_iterator NOrmQuerySet<T>::begin() const
 {
     return const_iterator(this);
 }
@@ -400,9 +337,9 @@ typename QDjangoQuerySet<T>::const_iterator QDjangoQuerySet<T>::begin() const
  *  \sa constBegin() and end().
  */
 template <class T>
-typename QDjangoQuerySet<T>::const_iterator QDjangoQuerySet<T>::constEnd() const
+typename NOrmQuerySet<T>::const_iterator NOrmQuerySet<T>::constEnd() const
 {
-    return const_iterator(this, QDjangoQuerySet<T>::count());
+    return const_iterator(this, NOrmQuerySet<T>::count());
 }
 
 /** Returns a const STL-style iterator pointing to the imaginary object after the last
@@ -411,17 +348,17 @@ typename QDjangoQuerySet<T>::const_iterator QDjangoQuerySet<T>::constEnd() const
  *  \sa begin() and constEnd().
  */
 template <class T>
-typename QDjangoQuerySet<T>::const_iterator QDjangoQuerySet<T>::end() const
+typename NOrmQuerySet<T>::const_iterator NOrmQuerySet<T>::end() const
 {
-    return const_iterator(this, QDjangoQuerySet<T>::count());
+    return const_iterator(this, NOrmQuerySet<T>::count());
 }
 
 /** Returns a copy of the current QDjangoQuerySet.
  */
 template <class T>
-QDjangoQuerySet<T> QDjangoQuerySet<T>::all() const
+NOrmQuerySet<T> NOrmQuerySet<T>::all() const
 {
-    QDjangoQuerySet<T> other;
+    NOrmQuerySet<T> other;
     other.d->lowMark = d->lowMark;
     other.d->highMark = d->highMark;
     other.d->orderBy = d->orderBy;
@@ -441,12 +378,12 @@ QDjangoQuerySet<T> QDjangoQuerySet<T>::all() const
  *  the number of objects.
  */
 template <class T>
-int QDjangoQuerySet<T>::count() const
+int NOrmQuerySet<T>::count() const
 {
     if (d->hasResults)
         return d->properties.size();
 
-    QVariant count(aggregate(QDjangoWhere::COUNT,"*"));
+    QVariant count(aggregate(NOrmWhere::COUNT,"*"));
     return count.isValid() ? count.toInt() : -1;
 }
 
@@ -455,10 +392,10 @@ int QDjangoQuerySet<T>::count() const
  *
  */
 template <class T>
-QVariant QDjangoQuerySet<T>::aggregate(const QDjangoWhere::AggregateType func, const QString& field) const
+QVariant NOrmQuerySet<T>::aggregate(const NOrmWhere::AggregateType func, const QString& field) const
 {
     // execute aggregate query
-    QDjangoQuery query(d->aggregateQuery(func, field));
+    NOrmQuery query(d->aggregateQuery(func, field));
     if (!query.exec() || !query.next())
         return QVariant();
     return query.value(0);
@@ -475,9 +412,9 @@ QVariant QDjangoQuerySet<T>::aggregate(const QDjangoWhere::AggregateType func, c
  * \sa filter()
  */
 template <class T>
-QDjangoQuerySet<T> QDjangoQuerySet<T>::exclude(const QDjangoWhere &where) const
+NOrmQuerySet<T> NOrmQuerySet<T>::exclude(const NOrmWhere &where) const
 {
-    QDjangoQuerySet<T> other = all();
+    NOrmQuerySet<T> other = all();
     other.d->addFilter(!where);
     return other;
 }
@@ -493,9 +430,9 @@ QDjangoQuerySet<T> QDjangoQuerySet<T>::exclude(const QDjangoWhere &where) const
  * \sa exclude()
  */
 template <class T>
-QDjangoQuerySet<T> QDjangoQuerySet<T>::filter(const QDjangoWhere &where) const
+NOrmQuerySet<T> NOrmQuerySet<T>::filter(const NOrmWhere &where) const
 {
-    QDjangoQuerySet<T> other = all();
+    NOrmQuerySet<T> other = all();
     other.d->addFilter(where);
     return other;
 }
@@ -512,9 +449,9 @@ QDjangoQuerySet<T> QDjangoQuerySet<T>::filter(const QDjangoWhere &where) const
  * \param target optional existing model instance.
  */
 template <class T>
-T *QDjangoQuerySet<T>::get(const QDjangoWhere &where, T *target) const
+T *NOrmQuerySet<T>::get(const NOrmWhere &where, T *target) const
 {
-    QDjangoQuerySet<T> qs = filter(where);
+    NOrmQuerySet<T> qs = filter(where);
     return qs.size() == 1 ? qs.at(0, target) : 0;
 }
 
@@ -531,12 +468,12 @@ T *QDjangoQuerySet<T>::get(const QDjangoWhere &where, T *target) const
  * \param length maximum number of records
  */
 template <class T>
-QDjangoQuerySet<T> QDjangoQuerySet<T>::limit(int pos, int length) const
+NOrmQuerySet<T> NOrmQuerySet<T>::limit(int pos, int length) const
 {
     Q_ASSERT(pos >= 0);
     Q_ASSERT(length >= -1);
 
-    QDjangoQuerySet<T> other = all();
+    NOrmQuerySet<T> other = all();
     other.d->lowMark += pos;
     if (length > 0)
     {
@@ -552,10 +489,10 @@ QDjangoQuerySet<T> QDjangoQuerySet<T>::limit(int pos, int length) const
 /** Returns an empty QDjangoQuerySet.
  */
 template <class T>
-QDjangoQuerySet<T> QDjangoQuerySet<T>::none() const
+NOrmQuerySet<T> NOrmQuerySet<T>::none() const
 {
-    QDjangoQuerySet<T> other;
-    other.d->whereClause = !QDjangoWhere();
+    NOrmQuerySet<T> other;
+    other.d->whereClause = !NOrmWhere();
     return other;
 }
 
@@ -567,12 +504,12 @@ QDjangoQuerySet<T> QDjangoQuerySet<T>::none() const
  * \param keys
  */
 template <class T>
-QDjangoQuerySet<T> QDjangoQuerySet<T>::orderBy(const QStringList &keys) const
+NOrmQuerySet<T> NOrmQuerySet<T>::orderBy(const QStringList &keys) const
 {
     // it is not possible to change ordering once a limit has been set
     Q_ASSERT(!d->lowMark && !d->highMark);
 
-    QDjangoQuerySet<T> other = all();
+    NOrmQuerySet<T> other = all();
     other.d->orderBy << keys;
     return other;
 }
@@ -582,7 +519,7 @@ QDjangoQuerySet<T> QDjangoQuerySet<T>::orderBy(const QStringList &keys) const
  * \return true if deletion succeeded, false otherwise
  */
 template <class T>
-bool QDjangoQuerySet<T>::remove()
+bool NOrmQuerySet<T>::remove()
 {
     return d->sqlDelete();
 }
@@ -598,9 +535,9 @@ bool QDjangoQuerySet<T>::remove()
  *  Each list element is a chain of foreing keys separated by double underscore "__".
  */
 template <class T>
-QDjangoQuerySet<T> QDjangoQuerySet<T>::selectRelated(const QStringList &relatedFields) const
+NOrmQuerySet<T> NOrmQuerySet<T>::selectRelated(const QStringList &relatedFields) const
 {
-    QDjangoQuerySet<T> other = all();
+    NOrmQuerySet<T> other = all();
     other.d->selectRelated = true;
     other.d->relatedFields = relatedFields;
     return other;
@@ -613,7 +550,7 @@ QDjangoQuerySet<T> QDjangoQuerySet<T>::selectRelated(const QStringList &relatedF
  *  count() instead.
  */
 template <class T>
-int QDjangoQuerySet<T>::size()
+int NOrmQuerySet<T>::size()
 {
     if (!d->sqlFetch())
         return -1;
@@ -624,7 +561,7 @@ int QDjangoQuerySet<T>::size()
  *  number of rows affected, or -1 if the update failed.
  */
 template <class T>
-int QDjangoQuerySet<T>::update(const QVariantMap &fields)
+int NOrmQuerySet<T>::update(const QVariantMap &fields)
 {
     return d->sqlUpdate(fields);
 }
@@ -635,7 +572,7 @@ int QDjangoQuerySet<T>::update(const QVariantMap &fields)
  * \param fields
  */
 template <class T>
-QList<QVariantMap> QDjangoQuerySet<T>::values(const QStringList &fields)
+QList<QVariantMap> NOrmQuerySet<T>::values(const QStringList &fields)
 {
     return d->sqlValues(fields);
 }
@@ -647,7 +584,7 @@ QList<QVariantMap> QDjangoQuerySet<T>::values(const QStringList &fields)
  * \param fields
  */
 template <class T>
-QList<QVariantList> QDjangoQuerySet<T>::valuesList(const QStringList &fields)
+QList<QVariantList> NOrmQuerySet<T>::valuesList(const QStringList &fields)
 {
     return d->sqlValuesList(fields);
 }
@@ -656,9 +593,9 @@ QList<QVariantList> QDjangoQuerySet<T>::valuesList(const QStringList &fields)
  * QDjangoQuerySet.
  */
 template <class T>
-QDjangoWhere QDjangoQuerySet<T>::where() const
+NOrmWhere NOrmQuerySet<T>::where() const
 {
-    return d->resolvedWhere(QDjango::database());
+    return d->resolvedWhere(NOrm::database());
 }
 
 /** Assigns the specified queryset to this object.
@@ -666,7 +603,7 @@ QDjangoWhere QDjangoQuerySet<T>::where() const
  * \param other
  */
 template <class T>
-QDjangoQuerySet<T> &QDjangoQuerySet<T>::operator=(const QDjangoQuerySet<T> &other)
+NOrmQuerySet<T> &NOrmQuerySet<T>::operator=(const NOrmQuerySet<T> &other)
 {
     other.d->counter.ref();
     if (!d->counter.deref())

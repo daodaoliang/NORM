@@ -1,25 +1,33 @@
 #include <QCoreApplication>
-#include "QDjango.h"
+#include "NOrm.h"
 #include <QSqlDatabase>
 #include <QDebug>
+#include <QtTest/QTest>
 #include "testmodel.h"
-#include "QDjangoQuerySet.h"
+#include "NOrmQuerySet.h"
 
 bool initTestEnv(){
+    // 数据库基本信息
+    QString db_host = "127.0.0.1";
+    QString db_user = "root";
+    QString db_pwd = "";
+    QString db_name = "test";
+    qint32 db_port = 3306;
+
     // 设置调试模式
-    QDjango::setDebugEnabled(true);
+    NOrm::setDebugEnabled(true);
     // 设置数据库的初始信息
-    QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL");
-    db.setDatabaseName("test");
-    db.setHostName("127.0.0.1");
-    db.setPassword("");
-    db.setPort(3306);
-    db.setUserName("root");
-    if(db.open()){
-        QDjango::setDatabase(db);
-        return true;
+    QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL","test_");
+    db.setHostName(db_host);
+    db.setPassword(db_pwd);
+    db.setPort(db_port);
+    db.setUserName(db_user);
+    db.setDatabaseName(db_name);
+    bool ret = NOrm::setDatabase(db);
+    if(NOrm::isDebugEnabled()){
+        qDebug()<<QObject::tr("数据库设置:%1").arg(ret?"成功":"失败");
     }
-    return false;
+    return ret;
 }
 
 int main(int argc, char *argv[])
@@ -30,17 +38,23 @@ int main(int argc, char *argv[])
     // workflow 001 --> 初始化测试环境
     bool ret = initTestEnv();
     qDebug()<<QObject::tr("测试环境初始化:%1").arg(ret?"成功":"失败");
+    if(!ret) {
+        return -1;
+    }
 
     // workflow 002 --> 注册模型
-    QDjango::registerModel<TestTable>();
+    NOrm::registerModel<TestTable>();
 
     // workflow 004 --> 初始化数据表
-    QStringList tableList = QDjango::database().tables();
+    QStringList tableList = NOrm::database().tables();
     if(tableList.contains("testtable")){
-        QDjango::dropTables();
+        NOrm::dropTables();
     }
-    ret = QDjango::createTables();
+    ret = NOrm::createTables();
     qDebug()<<QObject::tr("创建数据库表结构:%1").arg(ret?"成功":"失败");
+    if(!ret) {
+        return -1;
+    }
 
     // workflow 005 --> 数据增加测试
     for(int index=0;index!=10;++index){
@@ -57,31 +71,31 @@ int main(int argc, char *argv[])
     }
 
     // 数据查询测试 --> 0061 count 数据条数
-    QDjangoQuerySet<TestTable> testTables_case;
+    NOrmQuerySet<TestTable> testTables_case;
     qDebug() << QObject::tr("当前数据库共有数据:%1条").arg(testTables_case.count());
 
     // 数据查询测试 --> 0062 单where 查询一条数据
     TestTable* testRecord;
-    testRecord = testTables_case.get(QDjangoWhere("id", QDjangoWhere::Equals, 1));
+    testRecord = testTables_case.get(NOrmWhere("id", NOrmWhere::Equals, 1));
     qDebug()<<QObject::tr("查询结果: %1").arg(testRecord->testFieldDouble());
     qDebug()<<QObject::tr("查询结果: %1").arg(testRecord->testFieldString());
     qDebug()<<QObject::tr("查询结果: %1").arg(testRecord->testFieldDateTime().toString());
 
     // 数据查询测试 --> 0063 单where 查询多条数据
-    QDjangoQuerySet<TestTable> queryMany;
-    QDjangoQuerySet<TestTable> rets = queryMany.filter(QDjangoWhere("id", QDjangoWhere::GreaterOrEquals, 1));
+    NOrmQuerySet<TestTable> queryMany;
+    NOrmQuerySet<TestTable> rets = queryMany.filter(NOrmWhere("id", NOrmWhere::GreaterOrEquals, 1));
     for(int tmpIndex=0;tmpIndex!=rets.size();++tmpIndex){
         qDebug()<<QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
     }
 
     // 数据查询测试 --> 0064 多where查询 与查询
-    rets = queryMany.filter(QDjangoWhere("id", QDjangoWhere::GreaterOrEquals, 1) && QDjangoWhere("id", QDjangoWhere::LessOrEquals, 5));
+    rets = queryMany.filter(NOrmWhere("id", NOrmWhere::GreaterOrEquals, 1) && NOrmWhere("id", NOrmWhere::LessOrEquals, 5));
     for(int tmpIndex=0;tmpIndex!=rets.size();++tmpIndex){
         qDebug()<<QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
     }
 
     // 数据查询测试 --> 0065 多where查询 或查询
-    rets = queryMany.filter(QDjangoWhere("id", QDjangoWhere::GreaterOrEquals, 4) || QDjangoWhere("id", QDjangoWhere::LessOrEquals, 2));
+    rets = queryMany.filter(NOrmWhere("id", NOrmWhere::GreaterOrEquals, 4) || NOrmWhere("id", NOrmWhere::LessOrEquals, 2));
     for(int tmpIndex=0;tmpIndex!=rets.size();++tmpIndex){
         qDebug()<<QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
     }

@@ -1,26 +1,9 @@
-/*
- * Copyright (C) 2010-2015 Jeremy Lainé
- * Contact: https://github.com/jlaine/qdjango
- *
- * This file is part of the QDjango Library.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- */
-
 #include <QStringList>
 #include <QDebug>
 
-#include "QDjango.h"
-#include "QDjangoWhere.h"
-#include "QDjangoWhere_p.h"
+#include "NOrm.h"
+#include "NOrmWhere.h"
+#include "NOrmWhere_p.h"
 
 static QString escapeLike(const QString &data)
 {
@@ -32,81 +15,21 @@ static QString escapeLike(const QString &data)
 
 /// \cond
 
-QDjangoWherePrivate::QDjangoWherePrivate()
-    : operation(QDjangoWhere::None)
+NOrmWherePrivate::NOrmWherePrivate()
+    : operation(NOrmWhere::None)
     , combine(NoCombine)
     , negate(false)
 {
 }
 
-/// \endcond
-
-/*!
-    \enum QDjangoWhere::Operation
-    A comparison operation on a database column value.
-
-    \var QDjangoWhere::Operation QDjangoWhere::None
-    No comparison, always returns true.
-
-    \var QDjangoWhere::Operation QDjangoWhere::Equals
-    Returns true if the column value is equal to the given value.
-
-    \var QDjangoWhere::Operation QDjangoWhere::IEquals
-    Returns true if the column value is equal to the given value (case-insensitive)
-
-    \var QDjangoWhere::Operation QDjangoWhere::NotEquals
-    Returns true if the column value is not equal to the given value.
-
-    \var QDjangoWhere::Operation QDjangoWhere::INotEquals
-    Returns true if the column value is not equal to the given value (case-insensitive).
-
-    \var QDjangoWhere::Operation QDjangoWhere::GreaterThan,
-    Returns true if the column value is greater than the given value.
-
-    \var QDjangoWhere::Operation QDjangoWhere::LessThan,
-    Returns true if the column value is less than the given value.
-
-    \var QDjangoWhere::Operation QDjangoWhere::GreaterOrEquals,
-    Returns true if the column value is greater or equal to the given value.
-
-    \var QDjangoWhere::Operation QDjangoWhere::LessOrEquals,
-    Returns true if the column value is less or equal to the given value.
-
-    \var QDjangoWhere::Operation QDjangoWhere::StartsWith,
-    Returns true if the column value starts with the given value (strings only).
-
-    \var QDjangoWhere::Operation QDjangoWhere::IStartsWith,
-    Returns true if the column value starts with the given value (strings only, case-insensitive).
-
-    \var QDjangoWhere::Operation QDjangoWhere::EndsWith,
-    Returns true if the column value ends with the given value (strings only).
-
-    \var QDjangoWhere::Operation QDjangoWhere::IEndsWith,
-    Returns true if the column value ends with the given value (strings only, case-insensitive).
-
-    \var QDjangoWhere::Operation QDjangoWhere::Contains,
-    Returns true if the column value contains the given value (strings only).
-
-    \var QDjangoWhere::Operation QDjangoWhere::IContains,
-    Returns true if the column value contains the given value (strings only, case-insensitive).
-
-    \var QDjangoWhere::Operation QDjangoWhere::IsIn,
-    Returns true if the column value is one of the given values.
-
-    \var QDjangoWhere::Operation QDjangoWhere::IsNull
-    Returns true if the column value is null.
-*/
-
-/** Constructs an empty QDjangoWhere, which expresses no constraint.
- */
-QDjangoWhere::QDjangoWhere()
+NOrmWhere::NOrmWhere()
 {
-    d = new QDjangoWherePrivate;
+    d = new NOrmWherePrivate;
 }
 
 /** Constructs a copy of \a other.
  */
-QDjangoWhere::QDjangoWhere(const QDjangoWhere &other)
+NOrmWhere::NOrmWhere(const NOrmWhere &other)
     : d(other.d)
 {
 }
@@ -117,9 +40,9 @@ QDjangoWhere::QDjangoWhere(const QDjangoWhere &other)
  * \param operation
  * \param value
  */
-QDjangoWhere::QDjangoWhere(const QString &key, QDjangoWhere::Operation operation, QVariant value)
+NOrmWhere::NOrmWhere(const QString &key, NOrmWhere::Operation operation, QVariant value)
 {
-    d = new QDjangoWherePrivate;
+    d = new NOrmWherePrivate;
     d->key = key;
     d->operation = operation;
     d->data = value;
@@ -127,13 +50,13 @@ QDjangoWhere::QDjangoWhere(const QString &key, QDjangoWhere::Operation operation
 
 /** Destroys a QDjangoWhere.
  */
-QDjangoWhere::~QDjangoWhere()
+NOrmWhere::~NOrmWhere()
 {
 }
 
 /** Assigns \a other to this QDjangoWhere.
  */
-QDjangoWhere& QDjangoWhere::operator=(const QDjangoWhere& other)
+NOrmWhere& NOrmWhere::operator=(const NOrmWhere& other)
 {
     d = other.d;
     return *this;
@@ -141,9 +64,9 @@ QDjangoWhere& QDjangoWhere::operator=(const QDjangoWhere& other)
 
 /** Negates the current QDjangoWhere.
  */
-QDjangoWhere QDjangoWhere::operator!() const
+NOrmWhere NOrmWhere::operator!() const
 {
-    QDjangoWhere result;
+    NOrmWhere result;
     result.d = d;
     if (d->children.isEmpty()) {
         switch (d->operation)
@@ -207,21 +130,21 @@ QDjangoWhere QDjangoWhere::operator!() const
  *
  * \param other
  */
-QDjangoWhere QDjangoWhere::operator&&(const QDjangoWhere &other) const
+NOrmWhere NOrmWhere::operator&&(const NOrmWhere &other) const
 {
     if (isAll() || other.isNone())
         return other;
     else if (isNone() || other.isAll())
         return *this;
 
-    if (d->combine == QDjangoWherePrivate::AndCombine) {
-        QDjangoWhere result = *this;
+    if (d->combine == NOrmWherePrivate::AndCombine) {
+        NOrmWhere result = *this;
         result.d->children << other;
         return result;
     }
 
-    QDjangoWhere result;
-    result.d->combine = QDjangoWherePrivate::AndCombine;
+    NOrmWhere result;
+    result.d->combine = NOrmWherePrivate::AndCombine;
     result.d->children << *this << other;
     return result;
 }
@@ -231,21 +154,21 @@ QDjangoWhere QDjangoWhere::operator&&(const QDjangoWhere &other) const
  *
  * \param other
  */
-QDjangoWhere QDjangoWhere::operator||(const QDjangoWhere &other) const
+NOrmWhere NOrmWhere::operator||(const NOrmWhere &other) const
 {
     if (isAll() || other.isNone())
         return *this;
     else if (isNone() || other.isAll())
         return other;
 
-    if (d->combine == QDjangoWherePrivate::OrCombine) {
-        QDjangoWhere result = *this;
+    if (d->combine == NOrmWherePrivate::OrCombine) {
+        NOrmWhere result = *this;
         result.d->children << other;
         return result;
     }
 
-    QDjangoWhere result;
-    result.d->combine = QDjangoWherePrivate::OrCombine;
+    NOrmWhere result;
+    result.d->combine = NOrmWherePrivate::OrCombine;
     result.d->children << *this << other;
     return result;
 }
@@ -254,40 +177,40 @@ QDjangoWhere QDjangoWhere::operator||(const QDjangoWhere &other) const
  *
  * \param query
  */
-void QDjangoWhere::bindValues(QDjangoQuery &query) const
+void NOrmWhere::bindValues(NOrmQuery &query) const
 {
-    if (d->operation == QDjangoWhere::IsIn) {
+    if (d->operation == NOrmWhere::IsIn) {
         const QList<QVariant> values = d->data.toList();
         for (int i = 0; i < values.size(); i++)
             query.addBindValue(values[i]);
-    } else if (d->operation == QDjangoWhere::IsNull) {
+    } else if (d->operation == NOrmWhere::IsNull) {
         // no data to bind
-    } else if (d->operation == QDjangoWhere::StartsWith || d->operation == QDjangoWhere::IStartsWith) {
+    } else if (d->operation == NOrmWhere::StartsWith || d->operation == NOrmWhere::IStartsWith) {
         query.addBindValue(escapeLike(d->data.toString()) + QLatin1String("%"));
-    } else if (d->operation == QDjangoWhere::EndsWith || d->operation == QDjangoWhere::IEndsWith) {
+    } else if (d->operation == NOrmWhere::EndsWith || d->operation == NOrmWhere::IEndsWith) {
         query.addBindValue(QLatin1String("%") + escapeLike(d->data.toString()));
-    } else if (d->operation == QDjangoWhere::Contains || d->operation == QDjangoWhere::IContains) {
+    } else if (d->operation == NOrmWhere::Contains || d->operation == NOrmWhere::IContains) {
         query.addBindValue(QLatin1String("%") + escapeLike(d->data.toString()) + QLatin1String("%"));
-    } else if (d->operation != QDjangoWhere::None) {
+    } else if (d->operation != NOrmWhere::None) {
         query.addBindValue(d->data);
     } else {
-        foreach (const QDjangoWhere &child, d->children)
+        foreach (const NOrmWhere &child, d->children)
             child.bindValues(query);
     }
 }
 
 /** Returns true if the current QDjangoWhere does not express any constraint.
  */
-bool QDjangoWhere::isAll() const
+bool NOrmWhere::isAll() const
 {
-    return d->combine == QDjangoWherePrivate::NoCombine && d->operation == None && d->negate == false;
+    return d->combine == NOrmWherePrivate::NoCombine && d->operation == None && d->negate == false;
 }
 
 /** Returns true if the current QDjangoWhere expressed an impossible constraint.
  */
-bool QDjangoWhere::isNone() const
+bool NOrmWhere::isNone() const
 {
-    return d->combine == QDjangoWherePrivate::NoCombine && d->operation == None && d->negate == true;
+    return d->combine == NOrmWherePrivate::NoCombine && d->operation == None && d->negate == true;
 }
 
 /** Returns the SQL code corresponding for the current QDjangoWhere.
@@ -298,9 +221,9 @@ bool QDjangoWhere::isNone() const
         https://code.djangoproject.com/ticket/9682
 
  */
-QString QDjangoWhere::sql(const QSqlDatabase &db) const
+QString NOrmWhere::sql(const QSqlDatabase &db) const
 {
-    QDjangoDatabase::DatabaseType databaseType = QDjangoDatabase::databaseType(db);
+    NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);
 
     switch (d->operation) {
         case Equals:
@@ -332,11 +255,11 @@ QString QDjangoWhere::sql(const QSqlDatabase &db) const
         case Contains:
         {
             QString op;
-            if (databaseType == QDjangoDatabase::MySqlServer)
+            if (databaseType == NOrmDatabase::MySqlServer)
                 op = QLatin1String(d->negate ? "NOT LIKE BINARY" : "LIKE BINARY");
             else
                 op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
-            if (databaseType == QDjangoDatabase::SQLite)
+            if (databaseType == NOrmDatabase::SQLite)
                 return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
             else
                 return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
@@ -347,9 +270,9 @@ QString QDjangoWhere::sql(const QSqlDatabase &db) const
         case IEquals:
         {
             const QString op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
-            if (databaseType == QDjangoDatabase::SQLite)
+            if (databaseType == NOrmDatabase::SQLite)
                 return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
-            else if (databaseType == QDjangoDatabase::PostgreSQL)
+            else if (databaseType == NOrmDatabase::PostgreSQL)
                 return QLatin1String("UPPER(") + d->key + QLatin1String("::text) ") + op + QLatin1String(" UPPER(?)");
             else
                 return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
@@ -357,19 +280,19 @@ QString QDjangoWhere::sql(const QSqlDatabase &db) const
         case INotEquals:
         {
             const QString op = QLatin1String(d->negate ? "LIKE" : "NOT LIKE");
-            if (databaseType == QDjangoDatabase::SQLite)
+            if (databaseType == NOrmDatabase::SQLite)
                 return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
-            else if (databaseType == QDjangoDatabase::PostgreSQL)
+            else if (databaseType == NOrmDatabase::PostgreSQL)
                 return QLatin1String("UPPER(") + d->key + QLatin1String("::text) ") + op + QLatin1String(" UPPER(?)");
             else
                 return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
         }
         case None:
-            if (d->combine == QDjangoWherePrivate::NoCombine) {
+            if (d->combine == NOrmWherePrivate::NoCombine) {
                 return d->negate ? QLatin1String("1 != 0") : QString();
             } else {
                 QStringList bits;
-                foreach (const QDjangoWhere &child, d->children) {
+                foreach (const NOrmWhere &child, d->children) {
                     QString atom = child.sql(db);
                     if (child.d->children.isEmpty())
                         bits << atom;
@@ -378,9 +301,9 @@ QString QDjangoWhere::sql(const QSqlDatabase &db) const
                 }
 
                 QString combined;
-                if (d->combine == QDjangoWherePrivate::AndCombine)
+                if (d->combine == NOrmWherePrivate::AndCombine)
                     combined = bits.join(QLatin1String(" AND "));
-                else if (d->combine == QDjangoWherePrivate::OrCombine)
+                else if (d->combine == NOrmWherePrivate::OrCombine)
                     combined = bits.join(QLatin1String(" OR "));
                 if (d->negate)
                     combined = QString::fromLatin1("NOT (%1)").arg(combined);
@@ -391,47 +314,47 @@ QString QDjangoWhere::sql(const QSqlDatabase &db) const
     return QString();
 }
 
-QString QDjangoWhere::toString() const
+QString NOrmWhere::toString() const
 {
-    if (d->combine == QDjangoWherePrivate::NoCombine) {
-        return QLatin1String("QDjangoWhere(")
+    if (d->combine == NOrmWherePrivate::NoCombine) {
+        return QLatin1String("NOrmWhere(")
                   + "key=\"" + d->key + "\""
-                  + ", operation=\"" + QDjangoWherePrivate::operationToString(d->operation) + "\""
+                  + ", operation=\"" + NOrmWherePrivate::operationToString(d->operation) + "\""
                   + ", value=\"" + d->data.toString() + "\""
                   + ", negate=" + (d->negate ? "true":"false")
                   + ")";
     } else {
         QStringList bits;
-        foreach (const QDjangoWhere &childWhere, d->children) {
+        foreach (const NOrmWhere &childWhere, d->children) {
             bits.append(childWhere.toString());
         }
-        if (d->combine == QDjangoWherePrivate::OrCombine) {
+        if (d->combine == NOrmWherePrivate::OrCombine) {
             return bits.join(" || ");
         } else {
             return bits.join(" && ");
         }
     }
 }
-QString QDjangoWherePrivate::operationToString(QDjangoWhere::Operation operation)
+QString NOrmWherePrivate::operationToString(NOrmWhere::Operation operation)
 {
     switch (operation) {
-    case QDjangoWhere::Equals: return QLatin1String("Equals");
-    case QDjangoWhere::IEquals: return QLatin1String("IEquals");
-    case QDjangoWhere::NotEquals: return QLatin1String("NotEquals");
-    case QDjangoWhere::INotEquals: return QLatin1String("INotEquals");
-    case QDjangoWhere::GreaterThan: return QLatin1String("GreaterThan");
-    case QDjangoWhere::LessThan: return QLatin1String("LessThan");
-    case QDjangoWhere::GreaterOrEquals: return QLatin1String("GreaterOrEquals");
-    case QDjangoWhere::LessOrEquals: return QLatin1String("LessOrEquals");
-    case QDjangoWhere::StartsWith: return QLatin1String("StartsWith");
-    case QDjangoWhere::IStartsWith: return QLatin1String("IStartsWith");
-    case QDjangoWhere::EndsWith: return QLatin1String("EndsWith");
-    case QDjangoWhere::IEndsWith: return QLatin1String("IEndsWith");
-    case QDjangoWhere::Contains: return QLatin1String("Contains");
-    case QDjangoWhere::IContains: return QLatin1String("IContains");
-    case QDjangoWhere::IsIn: return QLatin1String("IsIn");
-    case QDjangoWhere::IsNull: return QLatin1String("IsNull");
-    case QDjangoWhere::None:
+    case NOrmWhere::Equals: return QLatin1String("Equals");
+    case NOrmWhere::IEquals: return QLatin1String("IEquals");
+    case NOrmWhere::NotEquals: return QLatin1String("NotEquals");
+    case NOrmWhere::INotEquals: return QLatin1String("INotEquals");
+    case NOrmWhere::GreaterThan: return QLatin1String("GreaterThan");
+    case NOrmWhere::LessThan: return QLatin1String("LessThan");
+    case NOrmWhere::GreaterOrEquals: return QLatin1String("GreaterOrEquals");
+    case NOrmWhere::LessOrEquals: return QLatin1String("LessOrEquals");
+    case NOrmWhere::StartsWith: return QLatin1String("StartsWith");
+    case NOrmWhere::IStartsWith: return QLatin1String("IStartsWith");
+    case NOrmWhere::EndsWith: return QLatin1String("EndsWith");
+    case NOrmWhere::IEndsWith: return QLatin1String("IEndsWith");
+    case NOrmWhere::Contains: return QLatin1String("Contains");
+    case NOrmWhere::IContains: return QLatin1String("IContains");
+    case NOrmWhere::IsIn: return QLatin1String("IsIn");
+    case NOrmWhere::IsNull: return QLatin1String("IsNull");
+    case NOrmWhere::None:
     default:
         return QLatin1String("");
     }

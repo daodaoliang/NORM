@@ -1,39 +1,19 @@
-/*
- * Copyright (C) 2010-2015 Jeremy Lainé
- * Copyright (C) 2011 Mathias Hasselmann
- * Contact: https://github.com/jlaine/qdjango
- *
- * This file is part of the QDjango Library.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- */
-
 #include <QDebug>
 #include <QSqlDriver>
 #include <QSqlRecord>
 
-#include "QDjango.h"
-#include "QDjango_p.h"
-#include "QDjangoQuerySet.h"
-#include "QDjangoWhere_p.h"
+#include "NOrm.h"
+#include "NOrm_p.h"
+#include "NOrmQuerySet.h"
+#include "NOrmWhere_p.h"
 
-/// \cond
-
-QDjangoCompiler::QDjangoCompiler(const char *modelName, const QSqlDatabase &db)
+NOrmCompiler::NOrmCompiler(const char *modelName, const QSqlDatabase &db)
 {
     driver = db.driver();
-    baseModel = QDjango::metaModel(modelName);
+    baseModel = NOrm::metaModel(modelName);
 }
 
-QString QDjangoCompiler::referenceModel(const QString &modelPath, QDjangoMetaModel *metaModel, bool nullable)
+QString NOrmCompiler::referenceModel(const QString &modelPath, NOrmMetaModel *metaModel, bool nullable)
 {
     if (modelPath.isEmpty())
         return driver->escapeIdentifier(baseModel.table(), QSqlDriver::TableName);
@@ -42,13 +22,13 @@ QString QDjangoCompiler::referenceModel(const QString &modelPath, QDjangoMetaMod
         return modelRefs.value(modelPath).tableReference;
 
     const QString modelRef = QLatin1String("T") + QString::number(modelRefs.size());
-    modelRefs.insert(modelPath, QDjangoModelReference(modelRef, *metaModel, nullable));
+    modelRefs.insert(modelPath, NOrmModelReference(modelRef, *metaModel, nullable));
     return modelRef;
 }
 
-QString QDjangoCompiler::databaseColumn(const QString &name)
+QString NOrmCompiler::databaseColumn(const QString &name)
 {
-    QDjangoMetaModel model = baseModel;
+    NOrmMetaModel model = baseModel;
     QString modelName;
     QString modelPath;
     QString modelRef = referenceModel(QString(), &model, false);
@@ -56,7 +36,7 @@ QString QDjangoCompiler::databaseColumn(const QString &name)
 
     while (bits.size() > 1) {
         const QByteArray fk = bits.first().toLatin1();
-        QDjangoMetaModel foreignModel;
+        NOrmMetaModel foreignModel;
         bool foreignNullable = false;
 
         if (!modelPath.isEmpty())
@@ -66,8 +46,8 @@ QString QDjangoCompiler::databaseColumn(const QString &name)
         if (!model.foreignFields().contains(fk)) {
             // this might be a reverse relation, so look for the model
             // and if it exists continue
-            foreignModel = QDjango::metaModel(fk);
-            QDjangoReverseReference rev;
+            foreignModel = NOrm::metaModel(fk);
+            NOrmReverseReference rev;
             const QMap<QByteArray, QByteArray> foreignFields = foreignModel.foreignFields();
             foreach (const QByteArray &foreignKey, foreignFields.keys()) {
                 if (foreignFields[foreignKey] == baseModel.className()) {
@@ -83,7 +63,7 @@ QString QDjangoCompiler::databaseColumn(const QString &name)
             rev.rightHandKey = foreignModel.primaryKey();
             reverseModelRefs[modelPath] = rev;
         } else {
-            foreignModel = QDjango::metaModel(model.foreignFields()[fk]);
+            foreignModel = NOrm::metaModel(model.foreignFields()[fk]);
             foreignNullable = model.localField(fk + QByteArray("_id")).isNullable();;
         }
 
@@ -95,11 +75,11 @@ QString QDjangoCompiler::databaseColumn(const QString &name)
         bits.takeFirst();
     }
 
-    const QDjangoMetaField field = model.localField(bits.join(QLatin1String("__")).toLatin1());
+    const NOrmMetaField field = model.localField(bits.join(QLatin1String("__")).toLatin1());
     return modelRef + QLatin1Char('.') + driver->escapeIdentifier(field.column(), QSqlDriver::FieldName);
 }
 
-QStringList QDjangoCompiler::fieldNames(bool recurse, const QStringList *fields, QDjangoMetaModel *metaModel, const QString &modelPath, bool nullable)
+QStringList NOrmCompiler::fieldNames(bool recurse, const QStringList *fields, NOrmMetaModel *metaModel, const QString &modelPath, bool nullable)
 {
     QStringList columns;
     if (!metaModel)
@@ -107,7 +87,7 @@ QStringList QDjangoCompiler::fieldNames(bool recurse, const QStringList *fields,
 
     // store reference
     const QString tableName = referenceModel(modelPath, metaModel, nullable);
-    foreach (const QDjangoMetaField &field, metaModel->localFields())
+    foreach (const NOrmMetaField &field, metaModel->localFields())
         columns << tableName + QLatin1Char('.') + driver->escapeIdentifier(field.column(), QSqlDriver::FieldName);
     if (!recurse)
         return columns;
@@ -115,7 +95,7 @@ QStringList QDjangoCompiler::fieldNames(bool recurse, const QStringList *fields,
     // recurse for foreign keys
     const QString pathPrefix = modelPath.isEmpty() ? QString() : (modelPath + QLatin1String("__"));
     foreach (const QByteArray &fkName, metaModel->foreignFields().keys()) {
-        QDjangoMetaModel metaForeign = QDjango::metaModel(metaModel->foreignFields()[fkName]);
+        NOrmMetaModel metaForeign = NOrm::metaModel(metaModel->foreignFields()[fkName]);
         bool nullableForeign = metaModel->localField(fkName + QByteArray("_id")).isNullable();
         QString fkS(fkName);
         if ( (fields != 0) && (fields->contains(fkS) ) )
@@ -132,15 +112,15 @@ QStringList QDjangoCompiler::fieldNames(bool recurse, const QStringList *fields,
     return columns;
 }
 
-QString QDjangoCompiler::fromSql()
+QString NOrmCompiler::fromSql()
 {
     QString from = driver->escapeIdentifier(baseModel.table(), QSqlDriver::TableName);
     foreach (const QString &name, modelRefs.keys()) {
-        const QDjangoModelReference &ref = modelRefs[name];
+        const NOrmModelReference &ref = modelRefs[name];
 
         QString leftHandColumn, rightHandColumn;
         if (reverseModelRefs.contains(name)) {
-            const QDjangoReverseReference &rev = reverseModelRefs[name];
+            const NOrmReverseReference &rev = reverseModelRefs[name];
             leftHandColumn = ref.tableReference + "." + driver->escapeIdentifier(rev.leftHandKey, QSqlDriver::FieldName);;
             rightHandColumn = databaseColumn(rev.rightHandKey);
         } else {
@@ -157,7 +137,7 @@ QString QDjangoCompiler::fromSql()
     return from;
 }
 
-QString QDjangoCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, int highMark)
+QString NOrmCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, int highMark)
 {
     QString limit;
 
@@ -179,10 +159,10 @@ QString QDjangoCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, 
         limit += QLatin1String(" ORDER BY ") + bits.join(QLatin1String(", "));
 
     // limits
-    QDjangoDatabase::DatabaseType databaseType =
-        QDjangoDatabase::databaseType(QDjango::database());
+    NOrmDatabase::DatabaseType databaseType =
+        NOrmDatabase::databaseType(NOrm::database());
 
-    if (databaseType == QDjangoDatabase::MSSqlServer) {
+    if (databaseType == NOrmDatabase::MSSqlServer) {
         if (limit.isEmpty() && (highMark > 0 || lowMark > 0))
             limit += QLatin1String(" ORDER BY ") + databaseColumn(baseModel.primaryKey());
 
@@ -200,9 +180,9 @@ QString QDjangoCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, 
         if (lowMark > 0) {
             // no-limit is backend specific
             if (highMark <= 0) {
-                if (databaseType == QDjangoDatabase::SQLite)
+                if (databaseType == NOrmDatabase::SQLite)
                     limit += QLatin1String(" LIMIT -1");
-                else if (databaseType == QDjangoDatabase::MySqlServer)
+                else if (databaseType == NOrmDatabase::MySqlServer)
                     // 2^64 - 1, as recommended by the MySQL documentation
                     limit += QLatin1String(" LIMIT 18446744073709551615");
             }
@@ -214,10 +194,10 @@ QString QDjangoCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, 
     return limit;
 }
 
-void QDjangoCompiler::resolve(QDjangoWhere &where)
+void NOrmCompiler::resolve(NOrmWhere &where)
 {
     // resolve column
-    if (where.d->operation != QDjangoWhere::None)
+    if (where.d->operation != NOrmWhere::None)
         where.d->key = databaseColumn(where.d->key);
 
     // recurse into children
@@ -225,7 +205,7 @@ void QDjangoCompiler::resolve(QDjangoWhere &where)
         resolve(where.d->children[i]);
 }
 
-QDjangoQuerySetPrivate::QDjangoQuerySetPrivate(const char *modelName)
+NOrmQuerySetPrivate::NOrmQuerySetPrivate(const char *modelName)
     : counter(1),
     hasResults(false),
     lowMark(0),
@@ -235,7 +215,7 @@ QDjangoQuerySetPrivate::QDjangoQuerySetPrivate(const char *modelName)
 {
 }
 
-void QDjangoQuerySetPrivate::addFilter(const QDjangoWhere &where)
+void NOrmQuerySetPrivate::addFilter(const NOrmWhere &where)
 {
     // it is not possible to add filters once a limit has been set
     Q_ASSERT(!lowMark && !highMark);
@@ -243,15 +223,15 @@ void QDjangoQuerySetPrivate::addFilter(const QDjangoWhere &where)
     whereClause = whereClause && where;
 }
 
-QDjangoWhere QDjangoQuerySetPrivate::resolvedWhere(const QSqlDatabase &db) const
+NOrmWhere NOrmQuerySetPrivate::resolvedWhere(const QSqlDatabase &db) const
 {
-    QDjangoCompiler compiler(m_modelName, db);
-    QDjangoWhere resolvedWhere(whereClause);
+    NOrmCompiler compiler(m_modelName, db);
+    NOrmWhere resolvedWhere(whereClause);
     compiler.resolve(resolvedWhere);
     return resolvedWhere;
 }
 
-bool QDjangoQuerySetPrivate::sqlDelete()
+bool NOrmQuerySetPrivate::sqlDelete()
 {
     // DELETE on an empty queryset doesn't need a query
     if (whereClause.isNone())
@@ -264,7 +244,7 @@ bool QDjangoQuerySetPrivate::sqlDelete()
         return false;
 
     // execute query
-    QDjangoQuery query(deleteQuery());
+    NOrmQuery query(deleteQuery());
     if (!query.exec())
         return false;
 
@@ -276,13 +256,13 @@ bool QDjangoQuerySetPrivate::sqlDelete()
     return true;
 }
 
-bool QDjangoQuerySetPrivate::sqlFetch()
+bool NOrmQuerySetPrivate::sqlFetch()
 {
     if (hasResults || whereClause.isNone())
         return true;
 
     // execute query
-    QDjangoQuery query(selectQuery());
+    NOrmQuery query(selectQuery());
     if (!query.exec())
         return false;
 
@@ -298,22 +278,22 @@ bool QDjangoQuerySetPrivate::sqlFetch()
     return true;
 }
 
-bool QDjangoQuerySetPrivate::sqlInsert(const QVariantMap &fields, QVariant *insertId)
+bool NOrmQuerySetPrivate::sqlInsert(const QVariantMap &fields, QVariant *insertId)
 {
     // execute query
-    QDjangoQuery query(insertQuery(fields));
+    NOrmQuery query(insertQuery(fields));
     if (!query.exec())
         return false;
 
     // fetch autoincrement pk
     if (insertId) {
-        QSqlDatabase db = QDjango::database();
-        QDjangoDatabase::DatabaseType databaseType = QDjangoDatabase::databaseType(db);
+        QSqlDatabase db = NOrm::database();
+        NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);
 
-        if (databaseType == QDjangoDatabase::PostgreSQL) {
-            const QDjangoMetaModel metaModel = QDjango::metaModel(m_modelName);
-            QDjangoQuery query(db);
-            const QDjangoMetaField primaryKey = metaModel.localField("pk");
+        if (databaseType == NOrmDatabase::PostgreSQL) {
+            const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
+            NOrmQuery query(db);
+            const NOrmMetaField primaryKey = metaModel.localField("pk");
             const QString seqName = db.driver()->escapeIdentifier(metaModel.table() + QLatin1Char('_') + primaryKey.column() + QLatin1String("_seq"), QSqlDriver::FieldName);
             if (!query.exec(QLatin1String("SELECT CURRVAL('") + seqName + QLatin1String("')")) || !query.next())
                 return false;
@@ -332,7 +312,7 @@ bool QDjangoQuerySetPrivate::sqlInsert(const QVariantMap &fields, QVariant *inse
     return true;
 }
 
-bool QDjangoQuerySetPrivate::sqlLoad(QObject *model, int index)
+bool NOrmQuerySetPrivate::sqlLoad(QObject *model, int index)
 {
     if (!sqlFetch())
         return false;
@@ -343,19 +323,19 @@ bool QDjangoQuerySetPrivate::sqlLoad(QObject *model, int index)
         return false;
     }
 
-    const QDjangoMetaModel metaModel = QDjango::metaModel(m_modelName);
+    const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
     int pos = 0;
     metaModel.load(model, properties.at(index), pos, this->relatedFields);
     return true;
 }
 
-static QString aggregationToString(QDjangoWhere::AggregateType type){
+static QString aggregationToString(NOrmWhere::AggregateType type){
     switch (type) {
-    case QDjangoWhere::AVG: return QLatin1String("AVG");
-    case QDjangoWhere::COUNT: return QLatin1String("COUNT");
-    case QDjangoWhere::SUM: return QLatin1String("SUM");
-    case QDjangoWhere::MIN: return QLatin1String("MIN");
-    case QDjangoWhere::MAX: return QLatin1String("MAX");
+    case NOrmWhere::AVG: return QLatin1String("AVG");
+    case NOrmWhere::COUNT: return QLatin1String("COUNT");
+    case NOrmWhere::SUM: return QLatin1String("SUM");
+    case NOrmWhere::MIN: return QLatin1String("MIN");
+    case NOrmWhere::MAX: return QLatin1String("MAX");
     }
     return QString();
 }
@@ -366,13 +346,13 @@ static QString aggregationToString(QDjangoWhere::AggregateType type){
  * @param func one of [AVG, COUNT, SUM, MIN, MAX]
  * @return SQL query to perform a @param func on the current set.
  */
-QDjangoQuery QDjangoQuerySetPrivate::aggregateQuery(const QDjangoWhere::AggregateType func, const QString &field) const
+NOrmQuery NOrmQuerySetPrivate::aggregateQuery(const NOrmWhere::AggregateType func, const QString &field) const
 {
-    QSqlDatabase db = QDjango::database();
+    QSqlDatabase db = NOrm::database();
 
     // build query
-    QDjangoCompiler compiler(m_modelName, db);
-    QDjangoWhere resolvedWhere(whereClause);
+    NOrmCompiler compiler(m_modelName, db);
+    NOrmWhere resolvedWhere(whereClause);
     compiler.resolve(resolvedWhere);
 
     const QString where = resolvedWhere.sql(db);
@@ -382,7 +362,7 @@ QDjangoQuery QDjangoQuerySetPrivate::aggregateQuery(const QDjangoWhere::Aggregat
     if (!where.isEmpty())
         sql += QLatin1String(" WHERE ") + where;
     sql += limit;
-    QDjangoQuery query(db);
+    NOrmQuery query(db);
     query.prepare(sql);
     resolvedWhere.bindValues(query);
     return query;
@@ -390,13 +370,13 @@ QDjangoQuery QDjangoQuerySetPrivate::aggregateQuery(const QDjangoWhere::Aggregat
 
 /** Returns the SQL query to perform a DELETE on the current set.
  */
-QDjangoQuery QDjangoQuerySetPrivate::deleteQuery() const
+NOrmQuery NOrmQuerySetPrivate::deleteQuery() const
 {
-    QSqlDatabase db = QDjango::database();
+    QSqlDatabase db = NOrm::database();
 
     // build query
-    QDjangoCompiler compiler(m_modelName, db);
-    QDjangoWhere resolvedWhere(whereClause);
+    NOrmCompiler compiler(m_modelName, db);
+    NOrmWhere resolvedWhere(whereClause);
     compiler.resolve(resolvedWhere);
 
     const QString where = resolvedWhere.sql(db);
@@ -405,7 +385,7 @@ QDjangoQuery QDjangoQuerySetPrivate::deleteQuery() const
     if (!where.isEmpty())
         sql += QLatin1String(" WHERE ") + where;
     sql += limit;
-    QDjangoQuery query(db);
+    NOrmQuery query(db);
     query.prepare(sql);
     resolvedWhere.bindValues(query);
 
@@ -414,21 +394,21 @@ QDjangoQuery QDjangoQuerySetPrivate::deleteQuery() const
 
 /** Returns the SQL query to perform an INSERT for the specified \a fields.
  */
-QDjangoQuery QDjangoQuerySetPrivate::insertQuery(const QVariantMap &fields) const
+NOrmQuery NOrmQuerySetPrivate::insertQuery(const QVariantMap &fields) const
 {
-    QSqlDatabase db = QDjango::database();
-    const QDjangoMetaModel metaModel = QDjango::metaModel(m_modelName);
+    QSqlDatabase db = NOrm::database();
+    const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
 
     // perform INSERT
     QStringList fieldColumns;
     QStringList fieldHolders;
     foreach (const QString &name, fields.keys()) {
-        const QDjangoMetaField field = metaModel.localField(name.toLatin1());
+        const NOrmMetaField field = metaModel.localField(name.toLatin1());
         fieldColumns << db.driver()->escapeIdentifier(field.column(), QSqlDriver::FieldName);
         fieldHolders << QLatin1String("?");
     }
 
-    QDjangoQuery query(db);
+    NOrmQuery query(db);
     query.prepare(QString::fromLatin1("INSERT INTO %1 (%2) VALUES(%3)").arg(
                   db.driver()->escapeIdentifier(metaModel.table(), QSqlDriver::TableName),
                   fieldColumns.join(QLatin1String(", ")), fieldHolders.join(QLatin1String(", "))));
@@ -439,13 +419,13 @@ QDjangoQuery QDjangoQuerySetPrivate::insertQuery(const QVariantMap &fields) cons
 
 /** Returns the SQL query to perform a SELECT on the current set.
  */
-QDjangoQuery QDjangoQuerySetPrivate::selectQuery() const
+NOrmQuery NOrmQuerySetPrivate::selectQuery() const
 {
-    QSqlDatabase db = QDjango::database();
+    QSqlDatabase db = NOrm::database();
 
     // build query
-    QDjangoCompiler compiler(m_modelName, db);
-    QDjangoWhere resolvedWhere(whereClause);
+    NOrmCompiler compiler(m_modelName, db);
+    NOrmWhere resolvedWhere(whereClause);
     compiler.resolve(resolvedWhere);
 
     const QStringList columns = compiler.fieldNames(selectRelated, &this->relatedFields);
@@ -455,7 +435,7 @@ QDjangoQuery QDjangoQuerySetPrivate::selectQuery() const
     if (!where.isEmpty())
         sql += QLatin1String(" WHERE ") + where;
     sql += limit;
-    QDjangoQuery query(db);
+    NOrmQuery query(db);
     query.prepare(sql);
     resolvedWhere.bindValues(query);
 
@@ -465,14 +445,14 @@ QDjangoQuery QDjangoQuerySetPrivate::selectQuery() const
 /** Returns the SQL query to perform an UPDATE on the current set for the
     specified \a fields.
  */
-QDjangoQuery QDjangoQuerySetPrivate::updateQuery(const QVariantMap &fields) const
+NOrmQuery NOrmQuerySetPrivate::updateQuery(const QVariantMap &fields) const
 {
-    QSqlDatabase db = QDjango::database();
-    const QDjangoMetaModel metaModel = QDjango::metaModel(m_modelName);
+    QSqlDatabase db = NOrm::database();
+    const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
 
     // build query
-    QDjangoCompiler compiler(m_modelName, db);
-    QDjangoWhere resolvedWhere(whereClause);
+    NOrmCompiler compiler(m_modelName, db);
+    NOrmWhere resolvedWhere(whereClause);
     compiler.resolve(resolvedWhere);
 
     QString sql = QLatin1String("UPDATE ") + compiler.fromSql();
@@ -480,7 +460,7 @@ QDjangoQuery QDjangoQuerySetPrivate::updateQuery(const QVariantMap &fields) cons
     // add SET
     QStringList fieldAssign;
     foreach (const QString &name, fields.keys()) {
-        const QDjangoMetaField field = metaModel.localField(name.toLatin1());
+        const NOrmMetaField field = metaModel.localField(name.toLatin1());
         fieldAssign << db.driver()->escapeIdentifier(field.column(), QSqlDriver::FieldName) + QLatin1String(" = ?");
     }
     sql += QLatin1String(" SET ") + fieldAssign.join(QLatin1String(", "));
@@ -490,7 +470,7 @@ QDjangoQuery QDjangoQuerySetPrivate::updateQuery(const QVariantMap &fields) cons
     if (!where.isEmpty())
         sql += QLatin1String(" WHERE ") + where;
 
-    QDjangoQuery query(db);
+    NOrmQuery query(db);
     query.prepare(sql);
     foreach (const QString &name, fields.keys())
         query.addBindValue(fields.value(name));
@@ -499,7 +479,7 @@ QDjangoQuery QDjangoQuerySetPrivate::updateQuery(const QVariantMap &fields) cons
     return query;
 }
 
-int QDjangoQuerySetPrivate::sqlUpdate(const QVariantMap &fields)
+int NOrmQuerySetPrivate::sqlUpdate(const QVariantMap &fields)
 {
     // UPDATE on an empty queryset doesn't need a query
     if (whereClause.isNone() || fields.isEmpty())
@@ -512,7 +492,7 @@ int QDjangoQuerySetPrivate::sqlUpdate(const QVariantMap &fields)
         return -1;
 
     // execute query
-    QDjangoQuery query(updateQuery(fields));
+    NOrmQuery query(updateQuery(fields));
     if (!query.exec())
         return -1;
 
@@ -525,16 +505,16 @@ int QDjangoQuerySetPrivate::sqlUpdate(const QVariantMap &fields)
     return query.numRowsAffected();
 }
 
-QList<QVariantMap> QDjangoQuerySetPrivate::sqlValues(const QStringList &fields)
+QList<QVariantMap> NOrmQuerySetPrivate::sqlValues(const QStringList &fields)
 {
     QList<QVariantMap> values;
     if (!sqlFetch())
         return values;
 
-    const QDjangoMetaModel metaModel = QDjango::metaModel(m_modelName);
+    const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
 
     // build field list
-    const QList<QDjangoMetaField> localFields = metaModel.localFields();
+    const QList<NOrmMetaField> localFields = metaModel.localFields();
     QMap<QString, int> fieldPos;
     if (fields.isEmpty()) {
         for (int i = 0; i < localFields.size(); ++i)
@@ -542,12 +522,12 @@ QList<QVariantMap> QDjangoQuerySetPrivate::sqlValues(const QStringList &fields)
     } else {
         foreach (const QString &name, fields) {
             int pos = 0;
-            foreach (const QDjangoMetaField &field, localFields) {
+            foreach (const NOrmMetaField &field, localFields) {
                 if (field.name() == name)
                     break;
                 pos++;
             }
-            Q_ASSERT_X(pos < localFields.size(), "QDjangoQuerySet<T>::values", "unknown field requested");
+            Q_ASSERT_X(pos < localFields.size(), "NOrmQuerySet<T>::values", "unknown field requested");
             fieldPos.insert(name, pos);
         }
     }
@@ -563,16 +543,16 @@ QList<QVariantMap> QDjangoQuerySetPrivate::sqlValues(const QStringList &fields)
     return values;
 }
 
-QList<QVariantList> QDjangoQuerySetPrivate::sqlValuesList(const QStringList &fields)
+QList<QVariantList> NOrmQuerySetPrivate::sqlValuesList(const QStringList &fields)
 {
     QList<QVariantList> values;
     if (!sqlFetch())
         return values;
 
-    const QDjangoMetaModel metaModel = QDjango::metaModel(m_modelName);
+    const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
 
     // build field list
-    const QList<QDjangoMetaField> localFields = metaModel.localFields();
+    const QList<NOrmMetaField> localFields = metaModel.localFields();
     QList<int> fieldPos;
     if (fields.isEmpty()) {
         for (int i = 0; i < localFields.size(); ++i)
@@ -580,7 +560,7 @@ QList<QVariantList> QDjangoQuerySetPrivate::sqlValuesList(const QStringList &fie
     } else {
         foreach (const QString &name, fields) {
             int pos = 0;
-            foreach (const QDjangoMetaField &field, localFields) {
+            foreach (const NOrmMetaField &field, localFields) {
                 if (field.name() == name)
                     break;
                 pos++;

@@ -8,11 +8,11 @@
  */
 
 #include <QObject>
-#include "QDjangoModel.h"
+#include "NOrmModel.h"
 #include <QDateTime>
 #include <QByteArray>
 
-class TestTable: public QDjangoModel {
+class TestTable: public NOrmModel {
     Q_OBJECT
     Q_PROPERTY(QString testFieldString READ testFieldString WRITE setTestFieldString)
     Q_PROPERTY(bool testFieldBool READ testFieldBool WRITE setTestFieldBool)
@@ -23,7 +23,7 @@ class TestTable: public QDjangoModel {
     Q_PROPERTY(double testFieldDouble READ testFieldDouble WRITE setTestFieldDouble)
 
 public:
-    TestTable(QObject *parent=0): QDjangoModel(parent) {;}
+    TestTable(QObject *parent=0): NOrmModel(parent) {;}
 
 public:
     /***************** setter && getter ********************/
