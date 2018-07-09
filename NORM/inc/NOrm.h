@@ -1,5 +1,5 @@
-#ifndef NORM_P_H
-#define NORM_P_H
+#ifndef NORM_H
+#define NORM_H
 
 #include "NOrmMetaModel.h"
 #include "NOrm_global.h"
@@ -23,10 +23,10 @@ public:
 
     template <class T>
     static NOrmMetaModel registerModel();
+    static NOrmMetaModel metaModel(const char *name);
 
 private:
     static NOrmMetaModel registerModel(const QMetaObject *meta);
-    static NOrmMetaModel metaModel(const char *name);
 
     friend class NOrmCompiler;
     friend class NOrmModel;

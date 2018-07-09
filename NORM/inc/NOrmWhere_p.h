@@ -1,5 +1,5 @@
-#ifndef NORM_WHERE_H
-#define NORM_WHERE_H
+#ifndef NORM_WHERE_P_H
+#define NORM_WHERE_P_H
 
 #include <QSharedData>
 
