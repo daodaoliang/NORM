@@ -1,5 +1,5 @@
-#ifndef QDJANGO_WHERE_P_H
-#define QDJANGO_WHERE_P_H
+#ifndef NORM_WHERE_H
+#define NORM_WHERE_H
 
 #include <QSharedData>
 

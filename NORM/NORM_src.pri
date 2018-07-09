@@ -6,7 +6,8 @@ HEADERS += \
     $$PWD/inc/NOrmQuerySet.h \
     $$PWD/inc/NOrmQuerySet_p.h \
     $$PWD/inc/NOrmWhere.h \
-    $$PWD/inc/NOrmWhere_p.h
+    $$PWD/inc/NOrmWhere_p.h \
+    $$PWD/inc/NOrm_global.h
 SOURCES += \
     $$PWD/src/NOrm.cpp \
     $$PWD/src/NOrmMetaModel.cpp \

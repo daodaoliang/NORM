@@ -1,7 +1,8 @@
-#ifndef QDJANGO_H
-#define QDJANGO_H
+#ifndef NORM_P_H
+#define NORM_P_H
 
 #include "NOrmMetaModel.h"
+#include "NOrm_global.h"
 
 class QObject;
 class QSqlDatabase;
@@ -22,9 +23,10 @@ public:
 
     template <class T>
     static NOrmMetaModel registerModel();
-    static NOrmMetaModel metaModel(const char *name);
+
 private:
     static NOrmMetaModel registerModel(const QMetaObject *meta);
+    static NOrmMetaModel metaModel(const char *name);
 
     friend class NOrmCompiler;
     friend class NOrmModel;
@@ -32,8 +34,6 @@ private:
     friend class NOrmSetPrivate;
 };
 
-/** Register a QDjangoModel class with QDjango.
- */
 template <class T>
 NOrmMetaModel NOrm::registerModel()
 {

@@ -1,5 +1,5 @@
-#ifndef QDJANGO_P_H
-#define QDJANGO_P_H
+#ifndef NORM_P_H
+#define NORM_P_H
 
 #include <QMap>
 #include <QMutex>
@@ -8,12 +8,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
-
-#if defined(NORM_LIBRARY)
-#  define NORMSHARED_EXPORT Q_DECL_EXPORT
-#else
-#  define NORMSHARED_EXPORT Q_DECL_IMPORT
-#endif
+#include "NOrm_global.h"
 
 /** \brief The NOrmDatabase class represents a set of connections to a
  *  database.

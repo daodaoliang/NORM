@@ -319,7 +319,7 @@ bool NOrmQuerySetPrivate::sqlLoad(QObject *model, int index)
 
     if (index < 0 || index >= properties.size())
     {
-        qWarning("QDjangoQuerySet out of bounds");
+        qWarning("NOrmQuerySet out of bounds");
         return false;
     }
 
@@ -340,12 +340,6 @@ static QString aggregationToString(NOrmWhere::AggregateType type){
     return QString();
 }
 
-/**
- * @brief QDjangoQuerySetPrivate::aggregateQuery Returns the SQL query to perform a @param func on the current set.
- * @param field name or expression to aggregate (eq price or amount*price)
- * @param func one of [AVG, COUNT, SUM, MIN, MAX]
- * @return SQL query to perform a @param func on the current set.
- */
 NOrmQuery NOrmQuerySetPrivate::aggregateQuery(const NOrmWhere::AggregateType func, const QString &field) const
 {
     QSqlDatabase db = NOrm::database();
@@ -565,7 +559,7 @@ QList<QVariantList> NOrmQuerySetPrivate::sqlValuesList(const QStringList &fields
                     break;
                 pos++;
             }
-            Q_ASSERT_X(pos < localFields.size(), "QDjangoQuerySet<T>::valuesList", "unknown field requested");
+            Q_ASSERT_X(pos < localFields.size(), "NOrmQuerySet<T>::valuesList", "unknown field requested");
             fieldPos << pos;
         }
     }

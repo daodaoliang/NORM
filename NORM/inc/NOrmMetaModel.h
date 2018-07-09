@@ -1,11 +1,10 @@
-#ifndef QDJANGOMETAMODEL_H
-#define QDJANGOMETAMODEL_H
+#ifndef NORMMETAMODEL_H
+#define NORMMETAMODEL_H
 
 #include <QMap>
 #include <QSharedDataPointer>
 #include <QVariant>
 #include <QStringList>
-
 #include "NOrm_p.h"
 
 class NOrmMetaFieldPrivate;
@@ -28,19 +27,11 @@ public:
     QString name() const;
     int maxLength() const;
     QVariant toDatabase(const QVariant &value) const;
-
 private:
     QSharedDataPointer<NOrmMetaFieldPrivate> d;
     friend class NOrmMetaModel;
 };
 
-/** \brief The QDjangoMetaModel class holds the database schema for a model.
- *
- *  It manages table creation and deletion operations as well as row
- *  serialisation, deserialisation and deletion operations.
- *
- * \internal
- */
 class NORMSHARED_EXPORT NOrmMetaModel
 {
 public:

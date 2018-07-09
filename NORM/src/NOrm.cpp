@@ -7,17 +7,14 @@
 #include <QStringList>
 #include <QThread>
 #include <QStack>
-
 #include "NOrm.h"
 
-static const char *connectionPrefix = "_qdjango_";
+static const char *connectionPrefix = "_norm_";
 
 QMap<QByteArray, NOrmMetaModel> globalMetaModels = QMap<QByteArray, NOrmMetaModel>();
 static NOrmDatabase *globalDatabase = 0;
 static NOrmDatabase::DatabaseType globalDatabaseType = NOrmDatabase::UnknownDB;
 static bool globalDebugEnabled = false;
-
-/// \cond
 
 NOrmDatabase::NOrmDatabase(QObject *parent)
     : QObject(parent), connectionId(0)
@@ -151,17 +148,6 @@ bool NOrmQuery::exec(const QString &query)
     return true;
 }
 
-/// \endcond
-
-/*!
-    Returns the database used by QDjango.
-
-    If you call this method from any thread but the application's main thread,
-    a new connection to the database will be created. The connection will
-    automatically be torn down once the thread finishes.
-
-    \sa setDatabase()
-*/
 QSqlDatabase NOrm::database()
 {
     if (!globalDatabase)
@@ -187,13 +173,6 @@ QSqlDatabase NOrm::database()
     return db;
 }
 
-/*!
-    Sets the database used by QDjango.
-
-    You must call this method from your application's main thread.
-
-    \sa database()
-*/
 bool NOrm::setDatabase(QSqlDatabase database)
 {
     globalDatabaseType = getDatabaseType(database);
@@ -231,20 +210,20 @@ void NOrm::setDebugEnabled(bool enabled)
     globalDebugEnabled = enabled;
 }
 
-static void qdjango_topsort(const QByteArray &modelName, QHash<QByteArray, bool> &visited,
+static void norm_topsort(const QByteArray &modelName, QHash<QByteArray, bool> &visited,
                             QStack<NOrmMetaModel> &stack)
 {
     visited[modelName] = true;
     NOrmMetaModel model = globalMetaModels[modelName];
     foreach (const QByteArray &foreignModel, model.foreignFields().values()) {
         if (!visited[foreignModel])
-            qdjango_topsort(foreignModel, visited, stack);
+            norm_topsort(foreignModel, visited, stack);
     }
 
     stack.push(model);
 }
 
-static QStack<NOrmMetaModel> qdjango_sorted_metamodels()
+static QStack<NOrmMetaModel> norm_sorted_metamodels()
 {
     QStack<NOrmMetaModel> stack;
     stack.reserve(globalMetaModels.size());
@@ -255,7 +234,7 @@ static QStack<NOrmMetaModel> qdjango_sorted_metamodels()
 
     foreach (const QByteArray &model, globalMetaModels.keys()) {
         if (!visited[model])
-            qdjango_topsort(model, visited, stack);
+            norm_topsort(model, visited, stack);
     }
 
     return stack;
@@ -269,7 +248,7 @@ static QStack<NOrmMetaModel> qdjango_sorted_metamodels()
 bool NOrm::createTables()
 {
     bool result = true;
-    QStack<NOrmMetaModel> stack = qdjango_sorted_metamodels();
+    QStack<NOrmMetaModel> stack = norm_sorted_metamodels();
     foreach (const NOrmMetaModel &model, stack) {
         if (!model.createTable())
             result = false;
@@ -278,15 +257,10 @@ bool NOrm::createTables()
     return result;
 }
 
-/*!
-    Drops the database tables for all registered models.
-
-    \return true if all the tables were dropped, false otherwise.
-*/
 bool NOrm::dropTables()
 {
     bool result = true;
-    QStack<NOrmMetaModel> stack = qdjango_sorted_metamodels();
+    QStack<NOrmMetaModel> stack = norm_sorted_metamodels();
     for (int i = stack.size() - 1; i >= 0; --i) {
         NOrmMetaModel model = stack.at(i);
         if (!model.dropTable())

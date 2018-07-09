@@ -1,5 +1,5 @@
-#ifndef QDJANGO_MODEL_H
-#define QDJANGO_MODEL_H
+#ifndef NORM_MODEL_H
+#define NORM_MODEL_H
 
 #include <QObject>
 #include <QVariant>

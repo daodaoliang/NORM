@@ -27,19 +27,11 @@ NOrmWhere::NOrmWhere()
     d = new NOrmWherePrivate;
 }
 
-/** Constructs a copy of \a other.
- */
 NOrmWhere::NOrmWhere(const NOrmWhere &other)
     : d(other.d)
 {
 }
 
-/** Constructs a QDjangoWhere expressing a constraint on a database column.
- *
- * \param key
- * \param operation
- * \param value
- */
 NOrmWhere::NOrmWhere(const QString &key, NOrmWhere::Operation operation, QVariant value)
 {
     d = new NOrmWherePrivate;
@@ -48,22 +40,16 @@ NOrmWhere::NOrmWhere(const QString &key, NOrmWhere::Operation operation, QVarian
     d->data = value;
 }
 
-/** Destroys a QDjangoWhere.
- */
 NOrmWhere::~NOrmWhere()
 {
 }
 
-/** Assigns \a other to this QDjangoWhere.
- */
 NOrmWhere& NOrmWhere::operator=(const NOrmWhere& other)
 {
     d = other.d;
     return *this;
 }
 
-/** Negates the current QDjangoWhere.
- */
 NOrmWhere NOrmWhere::operator!() const
 {
     NOrmWhere result;
@@ -125,11 +111,6 @@ NOrmWhere NOrmWhere::operator!() const
     return result;
 }
 
-/** Combines the current QDjangoWhere with the \a other QDjangoWhere using
- *  a logical AND.
- *
- * \param other
- */
 NOrmWhere NOrmWhere::operator&&(const NOrmWhere &other) const
 {
     if (isAll() || other.isNone())
@@ -149,11 +130,6 @@ NOrmWhere NOrmWhere::operator&&(const NOrmWhere &other) const
     return result;
 }
 
-/** Combines the current QDjangoWhere with the \a other QDjangoWhere using
- *  a logical OR.
- *
- * \param other
- */
 NOrmWhere NOrmWhere::operator||(const NOrmWhere &other) const
 {
     if (isAll() || other.isNone())
@@ -173,10 +149,6 @@ NOrmWhere NOrmWhere::operator||(const NOrmWhere &other) const
     return result;
 }
 
-/** Bind the values associated with this QDjangoWhere to the given \a query.
- *
- * \param query
- */
 void NOrmWhere::bindValues(NOrmQuery &query) const
 {
     if (d->operation == NOrmWhere::IsIn) {
@@ -199,28 +171,16 @@ void NOrmWhere::bindValues(NOrmQuery &query) const
     }
 }
 
-/** Returns true if the current QDjangoWhere does not express any constraint.
- */
 bool NOrmWhere::isAll() const
 {
     return d->combine == NOrmWherePrivate::NoCombine && d->operation == None && d->negate == false;
 }
 
-/** Returns true if the current QDjangoWhere expressed an impossible constraint.
- */
 bool NOrmWhere::isNone() const
 {
     return d->combine == NOrmWherePrivate::NoCombine && d->operation == None && d->negate == true;
 }
 
-/** Returns the SQL code corresponding for the current QDjangoWhere.
- */
-/* Note - SQLite is always case-insensitive because it can't figure out case when using non-Ascii charcters:
-        https://docs.djangoproject.com/en/dev/ref/databases/#sqlite-string-matching
-   Note - MySQL is only case-sensitive when the collation is set as such:
-        https://code.djangoproject.com/ticket/9682
-
- */
 QString NOrmWhere::sql(const QSqlDatabase &db) const
 {
     NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);

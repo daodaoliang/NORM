@@ -1,5 +1,5 @@
-#ifndef QDJANGO_QUERYSET_P_H
-#define QDJANGO_QUERYSET_P_H
+#ifndef NORM_QUERYSET_P_H
+#define NORM_QUERYSET_P_H
 
 #include <QStringList>
 

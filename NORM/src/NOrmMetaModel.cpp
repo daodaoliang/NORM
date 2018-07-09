@@ -37,8 +37,6 @@ static long stringlist_hash(const QStringList &l)
     return (x == -1) ? -2 : x;
 }
 
-// django-compatible digest
-
 static QString stringlist_digest(const QStringList &l)
 {
     return QString::number(labs(stringlist_hash(l)) % 4294967296UL, 16);
@@ -81,105 +79,66 @@ NOrmMetaFieldPrivate::NOrmMetaFieldPrivate()
 {
 }
 
-/*!
-    Constructs a new QDjangoMetaField.
-*/
 NOrmMetaField::NOrmMetaField()
 {
     d = new NOrmMetaFieldPrivate;
 }
 
-/*!
-    Constructs a copy of \a other.
-*/
 NOrmMetaField::NOrmMetaField(const NOrmMetaField &other)
     : d(other.d)
 {
 }
 
-/*!
-    Destroys the meta field.
-*/
 NOrmMetaField::~NOrmMetaField()
 {
 }
 
-/*!
-    Assigns \a other to this meta field.
-*/
 NOrmMetaField& NOrmMetaField::operator=(const NOrmMetaField& other)
 {
     d = other.d;
     return *this;
 }
 
-/*!
-    Returns the database column for this meta field.
-*/
 QString NOrmMetaField::column() const
 {
     return d->db_column;
 }
 
-/*!
-    Returns true if this field is nullable.
-*/
 bool NOrmMetaField::isNullable() const
 {
     return d->null;
 }
 
-/*!
-    Returns true if this is a valid field.
-*/
 bool NOrmMetaField::isValid() const
 {
     return !d->name.isEmpty();
 }
 
-/*!
-    Returns true if this field is auto incremented.
-*/
 bool NOrmMetaField::isAutoIncrement() const
 {
     return d->autoIncrement;
 }
 
-/*!
-    Returns true if this field is unique.
-*/
 bool NOrmMetaField::isUnique() const
 {
     return d->unique;
 }
 
-/*!
-    Returns true if this field can be empty.
-*/
 bool NOrmMetaField::isBlank() const
 {
     return d->blank;
 }
 
-/*!
-    Returns name of this meta field.
-*/
 QString NOrmMetaField::name() const
 {
     return QString::fromLatin1(d->name);
 }
 
-/*!
-    Returns the max length of this field
-*/
 int NOrmMetaField::maxLength() const
 {
     return d->maxLength;
 }
 
-/*!
-    Transforms the given field value for database storage.
-*/
 QVariant NOrmMetaField::toDatabase(const QVariant &value) const
 {
     if (d->type == QVariant::String && !d->null && value.isNull())
@@ -222,9 +181,6 @@ public:
     QList<QByteArray> uniqueTogether;
 };
 
-/*!
-    Constructs a new QDjangoMetaModel by inspecting the given \a meta model.
-*/
 NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
     : d(new NOrmMetaModelPrivate)
 {
@@ -400,11 +356,6 @@ NOrmMetaModel& NOrmMetaModel::operator=(const NOrmMetaModel& other)
     return *this;
 }
 
-/*!
-    Creates the database table for this QDjangoMetaModel.
-
-    \return true if the table was created, false otherwise.
-*/
 bool NOrmMetaModel::createTable() const
 {
     NOrmQuery createQuery(NOrm::database());
@@ -415,10 +366,6 @@ bool NOrmMetaModel::createTable() const
     return true;
 }
 
-/*!
-    Returns the SQL queries to create the database table for this
-    QDjangoMetaModel.
-*/
 QStringList NOrmMetaModel::createTableSql() const
 {
     QSqlDatabase db = NOrm::database();
@@ -510,9 +457,6 @@ QStringList NOrmMetaModel::createTableSql() const
         // auto-increment is backend specific
         if (field.d->autoIncrement) {
             if (databaseType == NOrmDatabase::SQLite)
-                // NOTE: django does not add this option for sqlite, but there
-                // is a ticket asking for it to do so:
-                // https://code.djangoproject.com/ticket/10164
                 fieldSql += QLatin1String(" AUTOINCREMENT");
             else if (databaseType == NOrmDatabase::MySqlServer)
                 fieldSql += QLatin1String(" AUTO_INCREMENT");
@@ -625,11 +569,6 @@ QStringList NOrmMetaModel::createTableSql() const
     return queries;
 }
 
-/*!
-    Drops the database table for this QDjangoMetaModel.
-
-    \return true if the table was dropped or did not exist, false otherwise.
-*/
 bool NOrmMetaModel::dropTable() const
 {
     QSqlDatabase db = NOrm::database();
@@ -641,18 +580,12 @@ bool NOrmMetaModel::dropTable() const
         db.driver()->escapeIdentifier(d->table, QSqlDriver::TableName));
 }
 
-/*!
-    Retrieves the QDjangoModel pointed to by the given foreign-key.
-
-    \param model
-    \param name
-*/
 QObject *NOrmMetaModel::foreignKey(const QObject *model, const char *name) const
 {
     // check the name is valid
     const QByteArray prop(name);
     if (!d->foreignFields.contains(prop)) {
-        qWarning("QDjangoMetaModel cannot get foreign model for invalid key '%s'", name);
+        qWarning("NOrmMetaModel cannot get foreign model for invalid key '%s'", name);
         return 0;
     }
 
@@ -675,19 +608,12 @@ QObject *NOrmMetaModel::foreignKey(const QObject *model, const char *name) const
     return foreign;
 }
 
-/*!
-    Sets the QDjangoModel pointed to by the given foreign-key.
-
-    \param model
-    \param name
-    \param value
-*/
 void NOrmMetaModel::setForeignKey(QObject *model, const char *name, QObject *value) const
 {
     // check the name is valid
     const QByteArray prop(name);
     if (!d->foreignFields.contains(prop)) {
-        qWarning("QDjangoMetaModel cannot set foreign model for invalid key '%s'", name);
+        qWarning("NOrmMetaModel cannot set foreign model for invalid key '%s'", name);
         return;
     }
 
@@ -764,33 +690,21 @@ NOrmMetaField NOrmMetaModel::localField(const char *name) const
     return NOrmMetaField();
 }
 
-/*!
-    Returns the list of local fields.
-*/
 QList<NOrmMetaField> NOrmMetaModel::localFields() const
 {
     return d->localFields;
 }
 
-/*!
-    Returns the name of the primary key for the current QDjangoMetaModel.
-*/
 QByteArray NOrmMetaModel::primaryKey() const
 {
     return d->primaryKey;
 }
 
-/*!
-    Returns the name of the database table.
-*/
 QString NOrmMetaModel::table() const
 {
     return d->table;
 }
 
-/*!
-    Removes the given \a model instance from the database.
-*/
 bool NOrmMetaModel::remove(QObject *model) const
 {
     const QVariant pk = model->property(d->primaryKey);
@@ -799,11 +713,6 @@ bool NOrmMetaModel::remove(QObject *model) const
     return qs.sqlDelete();
 }
 
-/*!
-    Saves the given \a model instance to the database.
-
-    \return true if saving succeeded, false otherwise
-*/
 bool NOrmMetaModel::save(QObject *model) const
 {
     // find primary key
