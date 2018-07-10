@@ -5,6 +5,7 @@
 #include <QtTest/QTest>
 #include "testmodel.h"
 #include "NOrmQuerySet.h"
+#include <QUuid>
 
 bool initTestEnv(){
     // 数据库基本信息
@@ -59,13 +60,14 @@ int main(int argc, char *argv[])
     // workflow 005 --> 数据增加测试
     for(int index=0;index!=10;++index){
         TestTable test_case;
-        test_case.setTestFieldBool(false);
+        test_case.setTestFieldBool(true);
         test_case.setTestFieldByteArray(QByteArray(10, 'a'));
         test_case.setTestFieldDate(QDate::currentDate());
         test_case.setTestFieldDateTime(QDateTime::currentDateTime());
         test_case.setTestFieldDouble(12.345678);
-        test_case.setTestFieldString("我就是一段测试数据，我是娜美");
+        test_case.setTestFieldString(QUuid::createUuid().toString().replace("{","").replace("}",""));
         test_case.setTestFieldTime(QTime::currentTime());
+        test_case.setTestFieldInt(index);
         test_case.save();
         qDebug()<<"增加了一条新的数据记录";
     }
@@ -74,28 +76,21 @@ int main(int argc, char *argv[])
     NOrmQuerySet<TestTable> testTables_case;
     qDebug() << QObject::tr("当前数据库共有数据:%1条").arg(testTables_case.count());
 
-    // 数据查询测试 --> 0062 单where 查询一条数据
-    TestTable* testRecord;
-    testRecord = testTables_case.get(NOrmWhere("id", NOrmWhere::Equals, 1));
-    qDebug()<<QObject::tr("查询结果: %1").arg(testRecord->testFieldDouble());
-    qDebug()<<QObject::tr("查询结果: %1").arg(testRecord->testFieldString());
-    qDebug()<<QObject::tr("查询结果: %1").arg(testRecord->testFieldDateTime().toString());
-
-    // 数据查询测试 --> 0063 单where 查询多条数据
+    // 数据查询测试 --> 0062 单where 查询多条数据
     NOrmQuerySet<TestTable> queryMany;
-    NOrmQuerySet<TestTable> rets = queryMany.filter(NOrmWhere("id", NOrmWhere::GreaterOrEquals, 1));
+    NOrmQuerySet<TestTable> rets = queryMany.filter(NOrmWhere("testFieldBool", NOrmWhere::GreaterOrEquals, true));
     for(int tmpIndex=0;tmpIndex!=rets.size();++tmpIndex){
         qDebug()<<QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
     }
 
-    // 数据查询测试 --> 0064 多where查询 与查询
-    rets = queryMany.filter(NOrmWhere("id", NOrmWhere::GreaterOrEquals, 1) && NOrmWhere("id", NOrmWhere::LessOrEquals, 5));
+    // 数据查询测试 --> 0063 多where查询 与查询
+    rets = queryMany.filter(NOrmWhere("testFieldInt", NOrmWhere::GreaterOrEquals, 1) && NOrmWhere("testFieldInt", NOrmWhere::LessOrEquals, 5));
     for(int tmpIndex=0;tmpIndex!=rets.size();++tmpIndex){
         qDebug()<<QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
     }
 
-    // 数据查询测试 --> 0065 多where查询 或查询
-    rets = queryMany.filter(NOrmWhere("id", NOrmWhere::GreaterOrEquals, 4) || NOrmWhere("id", NOrmWhere::LessOrEquals, 2));
+    // 数据查询测试 --> 0064 多where查询 或查询
+    rets = queryMany.filter(NOrmWhere("testFieldInt", NOrmWhere::GreaterOrEquals, 4) || NOrmWhere("testFieldInt", NOrmWhere::LessOrEquals, 2));
     for(int tmpIndex=0;tmpIndex!=rets.size();++tmpIndex){
         qDebug()<<QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
     }

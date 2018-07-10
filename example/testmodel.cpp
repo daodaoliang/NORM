@@ -5,6 +5,11 @@ void TestTable::setTestFieldString(const QString &testFieldString)
     mTestFieldString = testFieldString;
 }
 
+TestTable::TestTable(QObject *parent)
+    : NOrmModel(parent)
+{
+}
+
 QString TestTable::testFieldString() const
 {
     return mTestFieldString;
@@ -68,4 +73,14 @@ double TestTable::testFieldDouble() const
 void TestTable::setTestFieldDouble(double testFieldDouble)
 {
     mTestFieldDouble = testFieldDouble;
+}
+
+quint32 TestTable::testFieldInt() const
+{
+    return mTestFieldInt;
+}
+
+void TestTable::setTestFieldInt(const quint32 &testFieldInt)
+{
+    mTestFieldInt = testFieldInt;
 }
