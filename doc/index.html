@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Description">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="/_res/vue.css">
+  <link rel="stylesheet" href="/_res/prism.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+		// 自定义标题
+		name: 'NORM',
+		// 自定义侧边栏
+		loadSidebar: '_sidebar.md',
+		subMaxLevel: 2,
+		// 封面
+		coverpage: "_coverpage.md",
+		onlyCover: true,
+		// 索引页
+		pagination: {
+			previousText: '上一章节',
+			nextText: '下一章节',
+		},
+		// 搜索设置
+		search: {
+			// localStorage 过期时间，单位毫秒，默认一天
+			maxAge: 86400000,
+			paths: 'auto', 
+			placeholder: '搜索',
+			noData: '试试其他关键字吧o(╯□╰)o',
+			// 搜索标题的最大程级, 1 - 6
+			depth: 6
+		},
+		// 源码
+		repo: 'https://gitee.com/daodaoliang/GCP',
+		// 自动滚到头部
+		//auto2top: true,
+		// 入口文件
+		homepage: 'README.md',
+		// 自动标题
+		autoHeader: true,
+		// 小屏幕适配
+		mergeNavbar: true,
+		// 更新日期
+		formatUpdated: '{MM}/{DD} {HH}:{mm}',
+		// 404
+		 notFoundPage: '404.md',
+		 // alias
+		alias: {
+			'/.*/_sidebar.md': '/_sidebar.md',
+		},
+	}
+</script>
+<script src="/_res/search.js"></script>
+<script src="/_res/doc.min.js"></script>
+<script src="/_res/doc-pagination.min.js"></script>
+<script src="/_res/copy_code.js"></script>
+<script src="/_res/emoji.js"></script>
+<script src="/_res/ext_sc.js"></script>
+<script src="/_res/zoom-image.js"></script>
+<script src="/_res/prism.js"></script>
+</body>
+</html>
