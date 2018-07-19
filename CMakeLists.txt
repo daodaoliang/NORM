@@ -7,13 +7,15 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt5Core)
 find_package(Qt5Sql)
 
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(NORM_INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/NORM/inc)
 
 aux_source_directory(${CMAKE_SOURCE_DIR}/NORM/src NORM_SRC)
 
-add_library(norm ${NORM_SRC})
+add_library(norm SHARED ${NORM_SRC})
 
 include_directories(${CMAKE_SOURCE_DIR}/NORM/inc)
 
