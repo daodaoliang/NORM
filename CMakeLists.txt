@@ -7,27 +7,21 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt5Core)
 find_package(Qt5Sql)
 
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(NORM_INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/NORM/inc)
 
 aux_source_directory(${CMAKE_SOURCE_DIR}/NORM/src NORM_SRC)
 
-add_library(norm ${NORM_SRC})
+add_library(norm SHARED ${NORM_SRC})
 
 include_directories(${CMAKE_SOURCE_DIR}/NORM/inc)
 
 target_link_libraries(norm Qt5::Core Qt5::Sql)
 
-###
-# install
-###
-# ensure lib and bin directories exist
 install(CODE "FILE(MAKE_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})")
 
-
-# install cpp_redis
 install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/ DESTINATION lib USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${NORM_INCLUDE_DIRECTORY}/ DESTINATION include/norm USE_SOURCE_PERMISSIONS)
-
-
