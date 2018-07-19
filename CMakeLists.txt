@@ -19,15 +19,7 @@ include_directories(${CMAKE_SOURCE_DIR}/NORM/inc)
 
 target_link_libraries(norm Qt5::Core Qt5::Sql)
 
-###
-# install
-###
-# ensure lib and bin directories exist
 install(CODE "FILE(MAKE_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})")
 
-
-# install cpp_redis
 install(DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/ DESTINATION lib USE_SOURCE_PERMISSIONS)
 install(DIRECTORY ${NORM_INCLUDE_DIRECTORY}/ DESTINATION include/norm USE_SOURCE_PERMISSIONS)
-
-
