@@ -16,7 +16,7 @@ set(NORM_INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/NORM/inc)
 aux_source_directory(${CMAKE_SOURCE_DIR}/NORM/src NORM_SRC)
 file(GLOB NORM_INC ${CMAKE_SOURCE_DIR}/NORM/inc/*.h)
 
-add_library(norm SHARED ${NORM_SRC})
+add_library(norm SHARED ${NORM_SRC} ${NORM_INC})
 
 include_directories(${CMAKE_SOURCE_DIR}/NORM/inc)
 
