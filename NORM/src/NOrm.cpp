@@ -284,6 +284,11 @@ NOrmMetaModel NOrm::metaModel(const char *name)
     return NOrmMetaModel();
 }
 
+QStack<NOrmMetaModel> NOrm::metaModels()
+{
+    return norm_sorted_metamodels();
+}
+
 NOrmMetaModel NOrm::registerModel(const QMetaObject *meta)
 {
     const QByteArray name = meta->className();

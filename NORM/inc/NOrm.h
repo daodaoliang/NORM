@@ -66,6 +66,7 @@ public:
      * @return 封装好的模型对象
      */
     static NOrmMetaModel metaModel(const char *name);
+    QStack<NOrmMetaModel> metaModels();
 
 private:
     /**
