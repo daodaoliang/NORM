@@ -84,3 +84,13 @@ void TestTable::setTestFieldInt(const quint32 &testFieldInt)
 {
     mTestFieldInt = testFieldInt;
 }
+
+QStringList TestTable::testStringList() const
+{
+    return mTestStringList;
+}
+
+void TestTable::setTestStringList(const QStringList &testStringList)
+{
+    mTestStringList = testStringList;
+}

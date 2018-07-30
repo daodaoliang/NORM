@@ -12,7 +12,7 @@ win32{
     RC_FILE += ./NORM_resource.rc
 }
 unix{
-    VERSION = 1.0.1
+    VERSION = 1.0.3
 }
 
 # 源码信息

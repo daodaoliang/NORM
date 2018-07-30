@@ -22,6 +22,7 @@ class TestTable: public NOrmModel {
     Q_PROPERTY(QByteArray testFieldByteArray READ testFieldByteArray WRITE setTestFieldByteArray)
     Q_PROPERTY(double testFieldDouble READ testFieldDouble WRITE setTestFieldDouble)
     Q_PROPERTY(int testFieldInt READ testFieldInt WRITE setTestFieldInt)
+    Q_PROPERTY(QStringList testStringList READ testStringList WRITE setTestStringList)
     Q_CLASSINFO("testFieldString","primary_key=true max_length=45")
 
 public:
@@ -53,6 +54,9 @@ public:
     quint32 testFieldInt() const;
     void setTestFieldInt(const quint32 &testFieldInt);
 
+    QStringList testStringList() const;
+    void setTestStringList(const QStringList &testStringList);
+
 private:
     // string 类型的字段
     QString mTestFieldString;
@@ -70,6 +74,8 @@ private:
     double mTestFieldDouble;
     // int 类型的字段
     int mTestFieldInt;
+    // stringlist 类型的字段
+    QStringList mTestStringList;
 };
 
 

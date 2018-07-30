@@ -10,10 +10,9 @@
 #include <QVariant>
 #include "NOrm_global.h"
 
-/** \brief The NOrmDatabase class represents a set of connections to a
- *  database.
- *
- * \internal
+/**
+ * @brief The NOrmDatabase class
+ * 链接数据库的操作集合
  */
 class NORMSHARED_EXPORT NOrmDatabase : public QObject
 {
@@ -22,6 +21,9 @@ class NORMSHARED_EXPORT NOrmDatabase : public QObject
 public:
     NOrmDatabase(QObject *parent = 0);
 
+    /**
+     * @brief The DatabaseType enum 数据库类型
+     */
     enum DatabaseType {
         UnknownDB,
         MSSqlServer,
@@ -34,6 +36,11 @@ public:
         DB2
     };
 
+    /**
+     * @brief databaseType 获取数据库类型
+     * @param db 数据库信息
+     * @return 数据库类型
+     */
     static DatabaseType databaseType(const QSqlDatabase &db);
 
     QSqlDatabase reference;

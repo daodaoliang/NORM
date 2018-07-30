@@ -6,6 +6,7 @@
 #include "testmodel.h"
 #include "NOrmQuerySet.h"
 #include <QUuid>
+#include <QJsonDocument>
 
 bool initTestEnv(){
     // 数据库基本信息
@@ -57,6 +58,14 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    QJsonDocument test_value;
+    test_value.fromJson("[122,344,566]");
+    QVariant temp_data;
+    temp_data.setValue(test_value);
+    QVariant::Type tmpType = temp_data.type();
+    qDebug() << "*******************" << int(tmpType);
+    qDebug() << "*******************" << temp_data.typeName();
+
     // workflow 005 --> 数据增加测试
     for(int index=0;index!=10;++index){
         TestTable test_case;
@@ -68,6 +77,7 @@ int main(int argc, char *argv[])
         test_case.setTestFieldString(QUuid::createUuid().toString().replace("{","").replace("}",""));
         test_case.setTestFieldTime(QTime::currentTime());
         test_case.setTestFieldInt(index);
+        test_case.setTestStringList(QStringList() << "123" << "234");
         test_case.save();
         qDebug()<<"增加了一条新的数据记录";
     }

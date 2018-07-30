@@ -2,13 +2,11 @@
 #include <QMetaProperty>
 #include <QSqlDriver>
 #include <QStringList>
-
 #include "NOrm.h"
 #include "NOrmMetaModel.h"
 #include "NOrmQuerySet_p.h"
 
 // python-compatible hash
-
 static long string_hash(const QString &s)
 {
     if (s.isEmpty())
@@ -141,13 +139,21 @@ int NOrmMetaField::maxLength() const
 
 QVariant NOrmMetaField::toDatabase(const QVariant &value) const
 {
-    if (d->type == QVariant::String && !d->null && value.isNull())
+    if (d->type == QVariant::String && !d->null && value.isNull()){
         return QLatin1String("");
-    else if (!d->foreignModel.isEmpty() && d->type == QVariant::Int && d->null && !value.toInt()) {
+    } else if (!d->foreignModel.isEmpty() && d->type == QVariant::Int && d->null && !value.toInt()) {
         // store 0 foreign key as NULL if the field is NULL
         return QVariant();
-    } else
+    } else if (d->type == QVariant::StringList) {
+        QStringList tmpStr = value.value<QStringList>();
+        QString arrary_data = tmpStr.join(',');
+        arrary_data.prepend("[");
+        arrary_data.append("]");
+        QVariant tmpValue(arrary_data);
+        return tmpValue;
+    } else {
         return value;
+    }
 }
 
 static QMap<QString, QString> parseOptions(const char *value)
@@ -231,31 +237,32 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
                 option.next();
                 const QString key = option.key();
                 const QString value = option.value();
-                if (key == QLatin1String("auto_increment"))
+                if (key == QLatin1String("auto_increment")) {
                     autoIncrementOption = stringToBool(value);
-                else if (key == QLatin1String("db_column"))
+                } else if (key == QLatin1String("db_column")) {
                     dbColumnOption = value;
-                else if (key == QLatin1String("db_index"))
+                } else if (key == QLatin1String("db_index")) {
                     dbIndexOption = stringToBool(value);
-                else if (key == QLatin1String("ignore_field"))
+                } else if (key == QLatin1String("ignore_field")) {
                     ignoreFieldOption = stringToBool(value);
-                else if (key == QLatin1String("max_length"))
+                } else if (key == QLatin1String("max_length")) {
                     maxLengthOption = value.toInt();
-                else if (key == QLatin1String("null"))
+                } else if (key == QLatin1String("null")) {
                     nullOption = stringToBool(value);
-                else if (key == QLatin1String("primary_key"))
+                } else if (key == QLatin1String("primary_key")) {
                     primaryKeyOption = stringToBool(value);
-                else if (key == QLatin1String("unique"))
+                } else if (key == QLatin1String("unique")) {
                     uniqueOption = stringToBool(value);
-                else if (key == QLatin1String("blank"))
+                } else if (key == QLatin1String("blank")) {
                     blankOption = stringToBool(value);
-                else if (option.key() == "on_delete") {
-                    if (value.toLower() == "cascade")
+                } else if (option.key() == "on_delete") {
+                    if (value.toLower() == "cascade") {
                         deleteConstraint = Cascade;
-                    else if (value.toLower() == "set_null")
+                    } else if (value.toLower() == "set_null") {
                         deleteConstraint = SetNull;
-                    else if (value.toLower() == "restrict")
+                    } else if (value.toLower() == "restrict") {
                         deleteConstraint = Restrict;
+                    }
                 }
             }
         }
@@ -439,6 +446,9 @@ QStringList NOrmMetaModel::createTableSql() const
             break;
         case QVariant::Time:
             fieldSql += QLatin1String(" time");
+            break;
+        case QVariant::StringList:
+            fieldSql += QLatin1String(" json");
             break;
         default:
             qWarning() << "Unhandled type" << field.d->type << "for property" << field.d->name;
