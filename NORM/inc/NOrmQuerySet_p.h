@@ -8,7 +8,7 @@
 
 class NOrmMetaModel;
 
-class NORMSHARED_EXPORT NOrmModelReference
+class NOrmModelReference
 {
 public:
     NOrmModelReference(const QString &tableReference_ = QString(), const NOrmMetaModel &metaModel_ = NOrmMetaModel(), bool nullable_ = false)
@@ -23,7 +23,7 @@ public:
     bool nullable;
 };
 
-class NORMSHARED_EXPORT NOrmReverseReference
+class NOrmReverseReference
 {
 public:
     QString leftHandKey;
@@ -32,7 +32,7 @@ public:
 
 /** \internal
  */
-class NORMSHARED_EXPORT NOrmCompiler
+class NOrmCompiler
 {
 public:
     NOrmCompiler(const char *modelName, const QSqlDatabase &db);
@@ -54,7 +54,7 @@ private:
 
 /** \internal
  */
-class NORMSHARED_EXPORT NOrmQuerySetPrivate
+class NOrmQuerySetPrivate
 {
 public:
     NOrmQuerySetPrivate(const char *modelName);

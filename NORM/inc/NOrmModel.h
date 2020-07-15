@@ -6,7 +6,7 @@
 
 #include "NOrm_p.h"
 
-class NORMSHARED_EXPORT NOrmModel : public QObject
+class NOrmModel : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QVariant pk READ pk WRITE setPk)

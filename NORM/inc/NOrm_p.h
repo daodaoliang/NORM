@@ -8,13 +8,12 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QVariant>
-#include "NOrm_global.h"
 
 /**
  * @brief The NOrmDatabase class
  * 链接数据库的操作集合
  */
-class NORMSHARED_EXPORT NOrmDatabase : public QObject
+class NOrmDatabase : public QObject
 {
     Q_OBJECT
 
@@ -52,7 +51,7 @@ private slots:
     void threadFinished();
 };
 
-class NORMSHARED_EXPORT NOrmQuery : public QSqlQuery
+class NOrmQuery : public QSqlQuery
 {
 public:
     NOrmQuery(QSqlDatabase db);

@@ -146,9 +146,14 @@ QVariant NOrmMetaField::toDatabase(const QVariant &value) const
         return QVariant();
     } else if (d->type == QVariant::StringList) {
         QStringList tmpStr = value.value<QStringList>();
-        QString arrary_data = tmpStr.join(',');
-        arrary_data.prepend("[");
-        arrary_data.append("]");
+        QString arrary_data;
+        foreach (QString item, tmpStr) {
+            arrary_data += QObject::tr("%1,").arg(item);
+        }
+        arrary_data = arrary_data.left(arrary_data.length()-1);
+        if(arrary_data.isNull()){
+            arrary_data = "";
+        }
         QVariant tmpValue(arrary_data);
         return tmpValue;
     } else {
@@ -448,7 +453,17 @@ QStringList NOrmMetaModel::createTableSql() const
             fieldSql += QLatin1String(" time");
             break;
         case QVariant::StringList:
-            fieldSql += QLatin1String(" json");
+            if (field.d->maxLength > 0) {
+                if (databaseType == NOrmDatabase::MSSqlServer)
+                    fieldSql += QLatin1String(" nvarchar(") + QString::number(field.d->maxLength) + QLatin1Char(')');
+                else
+                    fieldSql += QLatin1String(" varchar(") + QString::number(field.d->maxLength) + QLatin1Char(')');
+            } else {
+                if (databaseType == NOrmDatabase::MSSqlServer)
+                    fieldSql += QLatin1String(" nvarchar(max)");
+                else
+                    fieldSql += QLatin1String(" text");
+            }
             break;
         default:
             qWarning() << "Unhandled type" << field.d->type << "for property" << field.d->name;
@@ -483,14 +498,14 @@ QStringList NOrmMetaModel::createTableSql() const
             const NOrmMetaField foreignField = foreignMeta.localField("pk");
             if (databaseType == NOrmDatabase::MySqlServer) {
                 QString constraintName = QString::fromLatin1("FK_%1_%2").arg(
-                    field.column(), stringlist_digest(QStringList() << field.column() << d->table));
+                            field.column(), stringlist_digest(QStringList() << field.column() << d->table));
                 QString constraint =
-                    QString::fromLatin1("CONSTRAINT %1 FOREIGN KEY (%2) REFERENCES %3 (%4)").arg(
-                        driver->escapeIdentifier(constraintName, QSqlDriver::FieldName),
-                        driver->escapeIdentifier(field.column(), QSqlDriver::FieldName),
-                        driver->escapeIdentifier(foreignMeta.d->table, QSqlDriver::TableName),
-                        driver->escapeIdentifier(foreignField.column(), QSqlDriver::FieldName)
-                    );
+                        QString::fromLatin1("CONSTRAINT %1 FOREIGN KEY (%2) REFERENCES %3 (%4)").arg(
+                            driver->escapeIdentifier(constraintName, QSqlDriver::FieldName),
+                            driver->escapeIdentifier(field.column(), QSqlDriver::FieldName),
+                            driver->escapeIdentifier(foreignMeta.d->table, QSqlDriver::TableName),
+                            driver->escapeIdentifier(foreignField.column(), QSqlDriver::FieldName)
+                            );
 
                 if (field.d->deleteConstraint != NoAction) {
                     constraint += " ON DELETE";
@@ -512,11 +527,11 @@ QStringList NOrmMetaModel::createTableSql() const
                 constraintSql << constraint;
             } else {
                 fieldSql += QString::fromLatin1(" REFERENCES %1 (%2)").arg(
-                    driver->escapeIdentifier(foreignMeta.d->table, QSqlDriver::TableName),
-                    driver->escapeIdentifier(foreignField.column(), QSqlDriver::FieldName));
+                            driver->escapeIdentifier(foreignMeta.d->table, QSqlDriver::TableName),
+                            driver->escapeIdentifier(foreignField.column(), QSqlDriver::FieldName));
 
                 if (databaseType == NOrmDatabase::MSSqlServer &&
-                    field.d->deleteConstraint == Restrict) {
+                        field.d->deleteConstraint == Restrict) {
                     qWarning("MSSQL does not support RESTRICT constraints");
                     break;
                 }
@@ -560,19 +575,19 @@ QStringList NOrmMetaModel::createTableSql() const
 
     // create table
     queries << QString::fromLatin1("CREATE TABLE %1 (%2)").arg(
-            quotedTable,
-            propSql.join(QLatin1String(", ")));
+                   quotedTable,
+                   propSql.join(QLatin1String(", ")));
 
     // create indices
     foreach (const NOrmMetaField &field, d->localFields) {
         if (field.d->index) {
             const QString indexName = d->table + QLatin1Char('_')
-                + stringlist_digest(QStringList() << field.column());
+                    + stringlist_digest(QStringList() << field.column());
             queries << QString::fromLatin1("CREATE INDEX %1 ON %2 (%3)").arg(
-                // FIXME : how should we escape an index name?
-                driver->escapeIdentifier(indexName, QSqlDriver::FieldName),
-                quotedTable,
-                driver->escapeIdentifier(field.column(), QSqlDriver::FieldName));
+                           // FIXME : how should we escape an index name?
+                           driver->escapeIdentifier(indexName, QSqlDriver::FieldName),
+                           quotedTable,
+                           driver->escapeIdentifier(field.column(), QSqlDriver::FieldName));
         }
     }
 
@@ -587,7 +602,7 @@ bool NOrmMetaModel::dropTable() const
 
     NOrmQuery query(db);
     return query.exec(QLatin1String("DROP TABLE ") +
-        db.driver()->escapeIdentifier(d->table, QSqlDriver::TableName));
+                      db.driver()->escapeIdentifier(d->table, QSqlDriver::TableName));
 }
 
 QObject *NOrmMetaModel::foreignKey(const QObject *model, const char *name) const
@@ -647,8 +662,22 @@ void NOrmMetaModel::setForeignKey(QObject *model, const char *name, QObject *val
 void NOrmMetaModel::load(QObject *model, const QVariantList &properties, int &pos, const QStringList &relatedFields) const
 {
     // process local fields
-    foreach (const NOrmMetaField &field, d->localFields)
-        model->setProperty(field.d->name, properties.at(pos++));
+    foreach (const NOrmMetaField &field, d->localFields){
+
+        if(field.d->type == QVariant::StringList) {
+            QVariant tmpObj;
+            QStringList tmpStrList = properties.at(pos++).toStringList();
+            if(tmpStrList.size() > 0){
+                QString tmpStr = tmpStrList.first();
+                tmpObj = QVariant::fromValue(tmpStr.split(','));
+            } else {
+                tmpObj = QVariant::fromValue(QString(""));
+            }
+            model->setProperty(field.d->name, tmpObj);
+        } else {
+            model->setProperty(field.d->name, properties.at(pos++));
+        }
+    }
 
     // process foreign fields
     if (pos >= properties.size())
@@ -733,8 +762,8 @@ bool NOrmMetaModel::save(QObject *model) const
         QSqlDatabase db = NOrm::database();
         NOrmQuery query(db);
         query.prepare(QString::fromLatin1("SELECT 1 AS a FROM %1 WHERE %2 = ?").arg(
-                      db.driver()->escapeIdentifier(d->table, QSqlDriver::FieldName),
-                      db.driver()->escapeIdentifier(primaryKey.column(), QSqlDriver::FieldName)));
+                          db.driver()->escapeIdentifier(d->table, QSqlDriver::FieldName),
+                          db.driver()->escapeIdentifier(primaryKey.column(), QSqlDriver::FieldName)));
         query.addBindValue(pk);
         if (query.exec() && query.next())
         {

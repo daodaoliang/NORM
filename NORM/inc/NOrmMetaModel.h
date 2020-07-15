@@ -10,7 +10,7 @@
 class NOrmMetaFieldPrivate;
 class NOrmMetaModelPrivate;
 
-class NORMSHARED_EXPORT NOrmMetaField
+class NOrmMetaField
 {
 public:
     NOrmMetaField();
@@ -32,7 +32,7 @@ private:
     friend class NOrmMetaModel;
 };
 
-class NORMSHARED_EXPORT NOrmMetaModel
+class NOrmMetaModel
 {
 public:
     NOrmMetaModel(const QMetaObject *model = 0);

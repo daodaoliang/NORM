@@ -128,11 +128,11 @@ QString NOrmCompiler::fromSql()
             rightHandColumn = databaseColumn(name + QLatin1String("_id"));
         }
         from += QString::fromLatin1(" %1 %2 %3 ON %4 = %5")
-            .arg(ref.nullable ? "LEFT OUTER JOIN" : "INNER JOIN")
-            .arg(driver->escapeIdentifier(ref.metaModel.table(), QSqlDriver::TableName))
-            .arg(ref.tableReference)
-            .arg(leftHandColumn)
-            .arg(rightHandColumn);
+                .arg(ref.nullable ? "LEFT OUTER JOIN" : "INNER JOIN")
+                .arg(driver->escapeIdentifier(ref.metaModel.table(), QSqlDriver::TableName))
+                .arg(ref.tableReference)
+                .arg(leftHandColumn)
+                .arg(rightHandColumn);
     }
     return from;
 }
@@ -160,7 +160,7 @@ QString NOrmCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, int
 
     // limits
     NOrmDatabase::DatabaseType databaseType =
-        NOrmDatabase::databaseType(NOrm::database());
+            NOrmDatabase::databaseType(NOrm::database());
 
     if (databaseType == NOrmDatabase::MSSqlServer) {
         if (limit.isEmpty() && (highMark > 0 || lowMark > 0))
@@ -207,11 +207,11 @@ void NOrmCompiler::resolve(NOrmWhere &where)
 
 NOrmQuerySetPrivate::NOrmQuerySetPrivate(const char *modelName)
     : counter(1),
-    hasResults(false),
-    lowMark(0),
-    highMark(0),
-    selectRelated(false),
-    m_modelName(modelName)
+      hasResults(false),
+      lowMark(0),
+      highMark(0),
+      selectRelated(false),
+      m_modelName(modelName)
 {
 }
 
@@ -404,8 +404,8 @@ NOrmQuery NOrmQuerySetPrivate::insertQuery(const QVariantMap &fields) const
 
     NOrmQuery query(db);
     query.prepare(QString::fromLatin1("INSERT INTO %1 (%2) VALUES(%3)").arg(
-                  db.driver()->escapeIdentifier(metaModel.table(), QSqlDriver::TableName),
-                  fieldColumns.join(QLatin1String(", ")), fieldHolders.join(QLatin1String(", "))));
+                      db.driver()->escapeIdentifier(metaModel.table(), QSqlDriver::TableName),
+                      fieldColumns.join(QLatin1String(", ")), fieldHolders.join(QLatin1String(", "))));
     foreach (const QString &name, fields.keys())
         query.addBindValue(fields.value(name));
     return query;

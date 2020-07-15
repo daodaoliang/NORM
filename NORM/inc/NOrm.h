@@ -2,7 +2,6 @@
 #define NORM_H
 
 #include "NOrmMetaModel.h"
-#include "NOrm_global.h"
 
 class QObject;
 class QSqlDatabase;
@@ -13,7 +12,7 @@ class QString;
  * @brief The NOrm class
  * NORM的接口
  */
-class NORMSHARED_EXPORT NOrm
+class NOrm
 {
 public:
     /**
@@ -66,7 +65,7 @@ public:
      * @return 封装好的模型对象
      */
     static NOrmMetaModel metaModel(const char *name);
-    QStack<NOrmMetaModel> metaModels();
+	static QStack<NOrmMetaModel> metaModels();
 
 private:
     /**

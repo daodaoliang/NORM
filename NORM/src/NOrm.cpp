@@ -72,6 +72,7 @@ static NOrmDatabase::DatabaseType getDatabaseType(QSqlDatabase &db)
     return NOrmDatabase::UnknownDB;
 }
 
+static QMutex g_locker;
 static bool initDatabase(QSqlDatabase db)
 {
     NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);
@@ -82,18 +83,23 @@ static bool initDatabase(QSqlDatabase db)
         query.exec();
     } else if (databaseType == NOrmDatabase::MySqlServer) {
         // create db if not exist
-        QSqlDatabase tmpDB = QSqlDatabase::addDatabase("QMYSQL","tmp_connection");
-        tmpDB.setHostName(db.hostName());
-        tmpDB.setPassword(db.password());
-        tmpDB.setPort(db.port());
-        tmpDB.setUserName(db.userName());
-        if(!tmpDB.open()){
-            qWarning()<<"db open error:"<<tmpDB.lastError().text();
-            return false;
+        auto dbName = QObject::tr("%1_tmp").arg(QString::number(quintptr(QThread::currentThreadId())));
+        {
+            QSqlDatabase tmpDB = QSqlDatabase::addDatabase("QMYSQL", dbName);
+            tmpDB.setHostName(db.hostName());
+            tmpDB.setPassword(db.password());
+            tmpDB.setPort(db.port());
+            tmpDB.setUserName(db.userName());
+            if(!tmpDB.open()){
+                qWarning()<<"db open error:"<<tmpDB.lastError().text();
+                return false;
+            }
+            tmpDB.exec(QObject::tr("CREATE SCHEMA IF NOT EXISTS `%1`  DEFAULT CHARACTER SET utf8 ;").arg(db.databaseName()));
+            tmpDB.exec(QObject::tr("use %1;").arg(db.databaseName()));
+            tmpDB.close();
         }
-        tmpDB.exec(QObject::tr("CREATE SCHEMA IF NOT EXISTS `%1`  DEFAULT CHARACTER SET utf8 ;").arg(db.databaseName()));
-        tmpDB.exec(QObject::tr("use %1;").arg(db.databaseName()));
-//        QSqlDatabase::removeDatabase("tmp_connection");
+
+        QSqlDatabase::removeDatabase(dbName);
     }
     return true;
 }

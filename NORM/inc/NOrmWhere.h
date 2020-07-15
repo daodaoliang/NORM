@@ -10,7 +10,7 @@ class NOrmMetaModel;
 class NOrmQuery;
 class NOrmWherePrivate;
 
-class NORMSHARED_EXPORT NOrmWhere
+class NOrmWhere
 {
 public:
     enum Operation
