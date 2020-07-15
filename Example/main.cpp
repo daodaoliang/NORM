@@ -7,6 +7,7 @@
 #include "NOrmQuerySet.h"
 #include <QUuid>
 #include <QJsonDocument>
+#include <QTime>
 
 bool initTestEnv() {
     // 数据库基本信息
@@ -16,9 +17,10 @@ bool initTestEnv() {
     QString db_name = "test";
     qint32 db_port = 3306;
 
-    // 设置调试模式
+    // 设置调试模式（调试模式下会进行详细的日志输出）
     NOrm::setDebugEnabled(true);
-    // 设置数据库的初始信息
+
+    // 设置数据库的初始信息(数据库链接名字用来唯一识别数据库链接)
     QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", "test_");
     db.setHostName(db_host);
     db.setPassword(db_pwd);
@@ -34,7 +36,10 @@ bool initTestEnv() {
 
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
+
     qDebug() << "************************测试用例开始**********************************";
+    QTime mCountTime;
+    mCountTime.start();
 
     // workflow 001 --> 初始化测试环境
     bool ret = initTestEnv();
@@ -46,7 +51,7 @@ int main(int argc, char *argv[]) {
     // workflow 002 --> 注册模型
     NOrm::registerModel<TestTable>();
 
-    // workflow 004 --> 初始化数据表
+    // workflow 004 --> 初始化数据表(获取数据表数据表存在则进行删除)
     QStringList tableList = NOrm::database().tables();
     if (tableList.contains("testtable")) {
         NOrm::dropTables();
@@ -57,16 +62,9 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    QJsonDocument test_value;
-    test_value.fromJson("[122,344,566]");
-    QVariant temp_data;
-    temp_data.setValue(test_value);
-    QVariant::Type tmpType = temp_data.type();
-    qDebug() << "*******************" << int(tmpType);
-    qDebug() << "*******************" << temp_data.typeName();
-
-    // workflow 005 --> 数据增加测试
-    for (int index = 0; index != 10; ++index) {
+    // workflow 005 --> 数据增加测试（10000条数据）
+    NOrm::database().transaction();
+    for (int index = 0; index != 10000; ++index) {
         TestTable test_case;
         test_case.setTestFieldBool(true);
         test_case.setTestFieldByteArray(QByteArray(10, 'a'));
@@ -75,12 +73,12 @@ int main(int argc, char *argv[]) {
         test_case.setTestFieldDouble(12.345678);
         test_case.setTestFieldString(QUuid::createUuid().toString().replace("{", "").replace("}", ""));
         test_case.setTestFieldTime(QTime::currentTime());
-        test_case.setTestFieldInt(index);
-        test_case.setTestStringList(QStringList() << "123"
-                                                  << "234");
+        test_case.setTestFieldInt(static_cast<quint32>(index));
+        test_case.setTestStringList(QStringList() << "123" << "234");
         test_case.save();
         qDebug() << "增加了一条新的数据记录";
     }
+    NOrm::database().commit();
 
     // 数据查询测试 --> 0061 count 数据条数
     NOrmQuerySet<TestTable> testTables_case;
@@ -108,5 +106,6 @@ int main(int argc, char *argv[]) {
     }
 
     qDebug() << "************************测试用例结束**********************************";
+    qDebug() << " 测试用例花费时间:" << mCountTime.elapsed() << " 毫秒";
     return a.exec();
 }
