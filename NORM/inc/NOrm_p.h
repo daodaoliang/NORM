@@ -32,7 +32,8 @@ public:
         Sybase,
         SQLite,
         Interbase,
-        DB2
+        DB2,
+        DaMeng
     };
 
     /**

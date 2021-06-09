@@ -164,7 +164,7 @@ QVariant NOrmMetaField::toDatabase(const QVariant &value) const
 static QMap<QString, QString> parseOptions(const char *value)
 {
     QMap<QString, QString> options;
-    QStringList items = QString::fromLatin1(value).split(QLatin1Char(' '));
+    QStringList items = QString::fromLatin1(value).split(QLatin1Char(' '), QString::SkipEmptyParts);
     foreach (const QString &item, items) {
         QStringList assign = item.split(QLatin1Char('='));
         if (assign.size() == 2) {
@@ -324,6 +324,7 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
         field.d->name = "id";
         field.d->type = QVariant::Int;
         field.d->db_column = QLatin1String("id");
+        field.d->null = false;
         field.d->autoIncrement = true;
         d->localFields.prepend(field);
         d->primaryKey = field.d->name;
@@ -391,104 +392,63 @@ QStringList NOrmMetaModel::createTableSql() const
     foreach (const NOrmMetaField &field, d->localFields)
     {
         QString fieldSql = driver->escapeIdentifier(field.column(), QSqlDriver::FieldName);
+        fieldSql += " ";
         switch (field.d->type) {
         case QVariant::Bool:
-            if (databaseType == NOrmDatabase::PostgreSQL)
-                fieldSql += QLatin1String(" boolean");
-            else if (databaseType == NOrmDatabase::MSSqlServer)
-                fieldSql += QLatin1String(" bit");
-            else
-                fieldSql += QLatin1String(" bool");
+            fieldSql += getBoolType(databaseType);
             break;
         case QVariant::ByteArray:
-            if (databaseType == NOrmDatabase::PostgreSQL) {
-                fieldSql += QLatin1String(" bytea");
-            } else if (databaseType == NOrmDatabase::MSSqlServer) {
-                fieldSql += QLatin1String(" varbinary");
-                if (field.d->maxLength > 0)
-                    fieldSql += QLatin1Char('(') + QString::number(field.d->maxLength) + QLatin1Char(')');
-                else
-                    fieldSql += QLatin1String("(max)");
-            } else {
-                fieldSql += QLatin1String(" blob");
-                if (field.d->maxLength > 0)
-                    fieldSql += QLatin1Char('(') + QString::number(field.d->maxLength) + QLatin1Char(')');
-            }
+            fieldSql += getByteArrayType(databaseType, field.d->maxLength);
             break;
         case QVariant::Date:
-            fieldSql += QLatin1String(" date");
+            fieldSql += getDateType(databaseType);
             break;
         case QVariant::DateTime:
-            if (databaseType == NOrmDatabase::PostgreSQL)
-                fieldSql += QLatin1String(" timestamp");
-            else
-                fieldSql += QLatin1String(" datetime");
+            fieldSql += getDateTimeType(databaseType);
             break;
         case QVariant::Double:
-            fieldSql += QLatin1String(" real");
+            fieldSql += getDoubleType(databaseType);
             break;
         case QVariant::Int:
-            if (databaseType == NOrmDatabase::MSSqlServer)
-                fieldSql += QLatin1String(" int");
-            else
-                fieldSql += QLatin1String(" integer");
+            fieldSql += getIntType(databaseType);
             break;
         case QVariant::LongLong:
-            fieldSql += QLatin1String(" bigint");
+            fieldSql += getLongLongType(databaseType);
             break;
         case QVariant::String:
-            if (field.d->maxLength > 0) {
-                if (databaseType == NOrmDatabase::MSSqlServer)
-                    fieldSql += QLatin1String(" nvarchar(") + QString::number(field.d->maxLength) + QLatin1Char(')');
-                else
-                    fieldSql += QLatin1String(" varchar(") + QString::number(field.d->maxLength) + QLatin1Char(')');
-            } else {
-                if (databaseType == NOrmDatabase::MSSqlServer)
-                    fieldSql += QLatin1String(" nvarchar(max)");
-                else
-                    fieldSql += QLatin1String(" text");
-            }
+            fieldSql += getStringType(databaseType, field.d->maxLength);
             break;
         case QVariant::Time:
-            fieldSql += QLatin1String(" time");
+            fieldSql += getTimeType(databaseType);
             break;
         case QVariant::StringList:
-            if (field.d->maxLength > 0) {
-                if (databaseType == NOrmDatabase::MSSqlServer)
-                    fieldSql += QLatin1String(" nvarchar(") + QString::number(field.d->maxLength) + QLatin1Char(')');
-                else
-                    fieldSql += QLatin1String(" varchar(") + QString::number(field.d->maxLength) + QLatin1Char(')');
-            } else {
-                if (databaseType == NOrmDatabase::MSSqlServer)
-                    fieldSql += QLatin1String(" nvarchar(max)");
-                else
-                    fieldSql += QLatin1String(" text");
-            }
+            fieldSql += getStringListType(databaseType, field.d->maxLength);
             break;
         default:
             qWarning() << "Unhandled type" << field.d->type << "for property" << field.d->name;
             continue;
         }
 
-        if (!field.d->null)
-            fieldSql += QLatin1String(" NOT NULL");
-        if (field.d->unique)
-            fieldSql += QLatin1String(" UNIQUE");
+        if (field.d->null) {
+            fieldSql += " ";
+            fieldSql += attributeNull(databaseType);
+        }
+
+        if (field.d->unique) {
+            fieldSql += " ";
+            fieldSql += attributeUnique(databaseType);
+        }
 
         // primary key
-        if (field.d->name == d->primaryKey)
-            fieldSql += QLatin1String(" PRIMARY KEY");
+        if (field.d->name == d->primaryKey) {
+            fieldSql += " ";
+            fieldSql += attributePrimaryKey(databaseType);
+        }
 
         // auto-increment is backend specific
         if (field.d->autoIncrement) {
-            if (databaseType == NOrmDatabase::SQLite)
-                fieldSql += QLatin1String(" AUTOINCREMENT");
-            else if (databaseType == NOrmDatabase::MySqlServer)
-                fieldSql += QLatin1String(" AUTO_INCREMENT");
-            else if (databaseType == NOrmDatabase::PostgreSQL)
-                fieldSql = driver->escapeIdentifier(field.column(), QSqlDriver::FieldName) + QLatin1String(" serial PRIMARY KEY");
-            else if (databaseType == NOrmDatabase::MSSqlServer)
-                fieldSql += QLatin1String(" IDENTITY(1,1)");
+            fieldSql += " ";
+            fieldSql += attributeAutoIncrement(databaseType,field);
         }
 
         // foreign key
@@ -611,12 +571,12 @@ QObject *NOrmMetaModel::foreignKey(const QObject *model, const char *name) const
     const QByteArray prop(name);
     if (!d->foreignFields.contains(prop)) {
         qWarning("NOrmMetaModel cannot get foreign model for invalid key '%s'", name);
-        return 0;
+        return nullptr;
     }
 
     QObject *foreign = model->property(prop + "_ptr").value<QObject*>();
     if (!foreign)
-        return 0;
+        return nullptr;
 
     // if the foreign object was not loaded yet, do it now
     const QByteArray foreignClass = d->foreignFields[prop];
@@ -628,7 +588,7 @@ QObject *NOrmMetaModel::foreignKey(const QObject *model, const char *name) const
         qs.addFilter(NOrmWhere(QLatin1String("pk"), NOrmWhere::Equals, foreignPk));
         qs.sqlFetch();
         if (qs.properties.size() != 1 || !qs.sqlLoad(foreign, 0))
-            return 0;
+            return nullptr;
     }
     return foreign;
 }
@@ -742,6 +702,280 @@ QByteArray NOrmMetaModel::primaryKey() const
 QString NOrmMetaModel::table() const
 {
     return d->table;
+}
+
+QString NOrmMetaModel::getBoolType(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+        return  QString("bool");
+    case NOrmDatabase::PostgreSQL:
+        return  QString("boolean");
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::DaMeng:
+        return QString("bit");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getByteArrayType(NOrmDatabase::DatabaseType databaseType, int maxLength) const
+{
+    QString sql;
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        sql += QLatin1String(" blob");
+        if (maxLength > 0) {
+            sql += QLatin1Char('(') + QString::number(maxLength) + QLatin1Char(')');
+        }
+        break;
+    case NOrmDatabase::MSSqlServer:
+        sql += QLatin1String("varbinary");
+        if (maxLength > 0) {
+            sql += QLatin1Char('(') + QString::number(maxLength) + QLatin1Char(')');
+        }
+        else {
+            sql += QLatin1String("(max)");
+        }
+        break;
+    case NOrmDatabase::PostgreSQL:
+        sql += QLatin1String("bytea");
+        break;
+    }
+    return sql;
+}
+
+QString NOrmMetaModel::getDateType(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("date");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getDateTimeType(NOrmDatabase::DatabaseType databaseType) const
+{
+    QString fieldSql;
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("datetime");
+    case NOrmDatabase::PostgreSQL:
+        return QLatin1String("timestamp");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getDoubleType(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("real");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getIntType(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("integer");
+    case NOrmDatabase::MSSqlServer:
+        return QLatin1String("int");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getLongLongType(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("bigint");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getStringType(NOrmDatabase::DatabaseType databaseType, int maxLength) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        if (maxLength > 0) {
+            return QLatin1String("varchar(") + QString::number(maxLength) + QLatin1Char(')');
+        } else {
+            return QLatin1String("text");
+        }
+    case NOrmDatabase::MSSqlServer:
+        if (maxLength > 0) {
+            return QLatin1String("nvarchar(") + QString::number(maxLength) + QLatin1Char(')');
+        } else {
+            return QLatin1String("nvarchar(max)");
+        }
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getTimeType(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("time");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::getStringListType(NOrmDatabase::DatabaseType databaseType, int maxLength) const
+{
+    return getStringType(databaseType,maxLength);
+}
+
+QString NOrmMetaModel::attributeNull(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("NOT NULL");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::attributeUnique(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("UNIQUE");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::attributePrimaryKey(NOrmDatabase::DatabaseType databaseType) const
+{
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        return QString("PRIMARY KEY");
+    }
+    return QString();
+}
+
+QString NOrmMetaModel::attributeAutoIncrement(NOrmDatabase::DatabaseType databaseType, const NOrmMetaField &field) const
+{
+    QSqlDatabase db = NOrm::database();
+    QSqlDriver *driver = db.driver();
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+        return QString();
+    case NOrmDatabase::MSSqlServer:
+    case NOrmDatabase::DaMeng:
+        return QLatin1String("IDENTITY(1,1)");
+    case NOrmDatabase::MySqlServer:
+        return QLatin1String("AUTO_INCREMENT");
+    case NOrmDatabase::PostgreSQL:
+        return  driver->escapeIdentifier(field.column(), QSqlDriver::FieldName) + QLatin1String(" serial PRIMARY KEY");
+    case NOrmDatabase::SQLite:
+        return QLatin1String("AUTOINCREMENT");
+    }
+    return QString();
 }
 
 bool NOrmMetaModel::remove(QObject *model) const

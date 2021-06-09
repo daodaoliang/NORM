@@ -7,14 +7,12 @@
 #include "NOrmQuerySet.h"
 #include "NOrmWhere_p.h"
 
-NOrmCompiler::NOrmCompiler(const char *modelName, const QSqlDatabase &db)
-{
+NOrmCompiler::NOrmCompiler(const char* modelName, const QSqlDatabase& db) {
     driver = db.driver();
     baseModel = NOrm::metaModel(modelName);
 }
 
-QString NOrmCompiler::referenceModel(const QString &modelPath, NOrmMetaModel *metaModel, bool nullable)
-{
+QString NOrmCompiler::referenceModel(const QString& modelPath, NOrmMetaModel* metaModel, bool nullable) {
     if (modelPath.isEmpty())
         return driver->escapeIdentifier(baseModel.table(), QSqlDriver::TableName);
 
@@ -26,8 +24,48 @@ QString NOrmCompiler::referenceModel(const QString &modelPath, NOrmMetaModel *me
     return modelRef;
 }
 
-QString NOrmCompiler::databaseColumn(const QString &name)
+void NOrmCompiler::limitSql(QString &limit, int lowMark, int highMark)
 {
+    NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(NOrm::database());
+
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::MySqlServer:
+    case NOrmDatabase::PostgreSQL:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::SQLite:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::DaMeng:
+        if (lowMark < 0) {
+        } else if (lowMark > 0) {
+            limit += QString(" LIMIT ") + QString::number(lowMark);
+            if (highMark > 0) {
+                limit += QString(", ") + QString::number(highMark);
+            }
+        } else {
+            if (highMark > 0) {
+                limit += QString(" LIMIT ") + QString::number(highMark);
+            }
+        }
+        break;
+    case NOrmDatabase::MSSqlServer:
+        if (limit.isEmpty() && (highMark > 0 || lowMark > 0))
+            limit += QLatin1String(" ORDER BY ") + databaseColumn(baseModel.primaryKey());
+
+        if (lowMark > 0 || (lowMark == 0 && highMark > 0)) {
+            limit += QLatin1String(" OFFSET ") + QString::number(lowMark);
+            limit += QLatin1String(" ROWS");
+        }
+
+        if (highMark > 0)
+            limit += QString(" FETCH NEXT %1 ROWS ONLY").arg(highMark - lowMark);
+        break;
+    }
+}
+
+QString NOrmCompiler::databaseColumn(const QString& name) {
     NOrmMetaModel model = baseModel;
     QString modelName;
     QString modelPath;
@@ -49,7 +87,7 @@ QString NOrmCompiler::databaseColumn(const QString &name)
             foreignModel = NOrm::metaModel(fk);
             NOrmReverseReference rev;
             const QMap<QByteArray, QByteArray> foreignFields = foreignModel.foreignFields();
-            foreach (const QByteArray &foreignKey, foreignFields.keys()) {
+            foreach (const QByteArray& foreignKey, foreignFields.keys()) {
                 if (foreignFields[foreignKey] == baseModel.className()) {
                     rev.leftHandKey = foreignModel.localField(foreignKey + "_id").column();
                     break;
@@ -64,7 +102,8 @@ QString NOrmCompiler::databaseColumn(const QString &name)
             reverseModelRefs[modelPath] = rev;
         } else {
             foreignModel = NOrm::metaModel(model.foreignFields()[fk]);
-            foreignNullable = model.localField(fk + QByteArray("_id")).isNullable();;
+            foreignNullable = model.localField(fk + QByteArray("_id")).isNullable();
+            ;
         }
 
         // store reference
@@ -79,49 +118,52 @@ QString NOrmCompiler::databaseColumn(const QString &name)
     return modelRef + QLatin1Char('.') + driver->escapeIdentifier(field.column(), QSqlDriver::FieldName);
 }
 
-QStringList NOrmCompiler::fieldNames(bool recurse, const QStringList *fields, NOrmMetaModel *metaModel, const QString &modelPath, bool nullable)
-{
+QStringList NOrmCompiler::fieldNames(bool recurse,
+                                     const QStringList* fields,
+                                     NOrmMetaModel* metaModel,
+                                     const QString& modelPath,
+                                     bool nullable) {
     QStringList columns;
     if (!metaModel)
         metaModel = &baseModel;
 
     // store reference
     const QString tableName = referenceModel(modelPath, metaModel, nullable);
-    foreach (const NOrmMetaField &field, metaModel->localFields())
+    foreach (const NOrmMetaField& field, metaModel->localFields())
         columns << tableName + QLatin1Char('.') + driver->escapeIdentifier(field.column(), QSqlDriver::FieldName);
     if (!recurse)
         return columns;
 
     // recurse for foreign keys
     const QString pathPrefix = modelPath.isEmpty() ? QString() : (modelPath + QLatin1String("__"));
-    foreach (const QByteArray &fkName, metaModel->foreignFields().keys()) {
+    foreach (const QByteArray& fkName, metaModel->foreignFields().keys()) {
         NOrmMetaModel metaForeign = NOrm::metaModel(metaModel->foreignFields()[fkName]);
         bool nullableForeign = metaModel->localField(fkName + QByteArray("_id")).isNullable();
         QString fkS(fkName);
-        if ( (fields != 0) && (fields->contains(fkS) ) )
-        {
-            QStringList nsl = fields->filter(QRegExp("^" + fkS + "__")).replaceInStrings(QRegExp("^" + fkS + "__"),"");
-            columns += fieldNames(recurse, &nsl, &metaForeign, pathPrefix + QString::fromLatin1(fkName), nullableForeign);
+        if ((fields != 0) && (fields->contains(fkS))) {
+            QStringList nsl = fields->filter(QRegExp("^" + fkS + "__")).replaceInStrings(QRegExp("^" + fkS + "__"), "");
+            columns +=
+                    fieldNames(recurse, &nsl, &metaForeign, pathPrefix + QString::fromLatin1(fkName), nullableForeign);
         }
 
-        if (fields == 0)
-        {
+        if (fields == 0) {
             columns += fieldNames(recurse, 0, &metaForeign, pathPrefix + QString::fromLatin1(fkName), nullableForeign);
         }
     }
     return columns;
 }
 
-QString NOrmCompiler::fromSql()
-{
+QString NOrmCompiler::fromSql() {
     QString from = driver->escapeIdentifier(baseModel.table(), QSqlDriver::TableName);
-    foreach (const QString &name, modelRefs.keys()) {
-        const NOrmModelReference &ref = modelRefs[name];
+    foreach (const QString& name, modelRefs.keys()) {
+        const NOrmModelReference& ref = modelRefs[name];
 
         QString leftHandColumn, rightHandColumn;
         if (reverseModelRefs.contains(name)) {
-            const NOrmReverseReference &rev = reverseModelRefs[name];
-            leftHandColumn = ref.tableReference + "." + driver->escapeIdentifier(rev.leftHandKey, QSqlDriver::FieldName);;
+            const NOrmReverseReference& rev = reverseModelRefs[name];
+            leftHandColumn =
+                    ref.tableReference + "." + driver->escapeIdentifier(rev.leftHandKey, QSqlDriver::FieldName);
+            ;
             rightHandColumn = databaseColumn(rev.rightHandKey);
         } else {
             leftHandColumn = databaseColumn(name + QLatin1String("__pk"));
@@ -137,8 +179,7 @@ QString NOrmCompiler::fromSql()
     return from;
 }
 
-QString NOrmCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, int highMark)
-{
+QString NOrmCompiler::orderLimitSql(const QStringList& orderBy, int lowMark, int highMark) {
     QString limit;
 
     // order
@@ -159,43 +200,12 @@ QString NOrmCompiler::orderLimitSql(const QStringList &orderBy, int lowMark, int
         limit += QLatin1String(" ORDER BY ") + bits.join(QLatin1String(", "));
 
     // limits
-    NOrmDatabase::DatabaseType databaseType =
-            NOrmDatabase::databaseType(NOrm::database());
-
-    if (databaseType == NOrmDatabase::MSSqlServer) {
-        if (limit.isEmpty() && (highMark > 0 || lowMark > 0))
-            limit += QLatin1String(" ORDER BY ") + databaseColumn(baseModel.primaryKey());
-
-        if (lowMark > 0 || (lowMark == 0 && highMark > 0)) {
-            limit += QLatin1String(" OFFSET ") + QString::number(lowMark);
-            limit += QLatin1String(" ROWS");
-        }
-
-        if (highMark > 0)
-            limit += QString(" FETCH NEXT %1 ROWS ONLY").arg(highMark - lowMark);
-    } else {
-        if (highMark > 0)
-            limit += QLatin1String(" LIMIT ") + QString::number(highMark - lowMark);
-
-        if (lowMark > 0) {
-            // no-limit is backend specific
-            if (highMark <= 0) {
-                if (databaseType == NOrmDatabase::SQLite)
-                    limit += QLatin1String(" LIMIT -1");
-                else if (databaseType == NOrmDatabase::MySqlServer)
-                    // 2^64 - 1, as recommended by the MySQL documentation
-                    limit += QLatin1String(" LIMIT 18446744073709551615");
-            }
-
-            limit += QLatin1String(" OFFSET ") + QString::number(lowMark);
-        }
-    }
+    limitSql(limit, lowMark, highMark);
 
     return limit;
 }
 
-void NOrmCompiler::resolve(NOrmWhere &where)
-{
+void NOrmCompiler::resolve(NOrmWhere& where) {
     // resolve column
     if (where.d->operation != NOrmWhere::None)
         where.d->key = databaseColumn(where.d->key);
@@ -205,34 +215,24 @@ void NOrmCompiler::resolve(NOrmWhere &where)
         resolve(where.d->children[i]);
 }
 
-NOrmQuerySetPrivate::NOrmQuerySetPrivate(const char *modelName)
-    : counter(1),
-      hasResults(false),
-      lowMark(0),
-      highMark(0),
-      selectRelated(false),
-      m_modelName(modelName)
-{
-}
+NOrmQuerySetPrivate::NOrmQuerySetPrivate(const char* modelName)
+    : counter(1), hasResults(false), lowMark(0), highMark(0), selectRelated(false), m_modelName(modelName) {}
 
-void NOrmQuerySetPrivate::addFilter(const NOrmWhere &where)
-{
+void NOrmQuerySetPrivate::addFilter(const NOrmWhere& where) {
     // it is not possible to add filters once a limit has been set
     Q_ASSERT(!lowMark && !highMark);
 
     whereClause = whereClause && where;
 }
 
-NOrmWhere NOrmQuerySetPrivate::resolvedWhere(const QSqlDatabase &db) const
-{
+NOrmWhere NOrmQuerySetPrivate::resolvedWhere(const QSqlDatabase& db) const {
     NOrmCompiler compiler(m_modelName, db);
     NOrmWhere resolvedWhere(whereClause);
     compiler.resolve(resolvedWhere);
     return resolvedWhere;
 }
 
-bool NOrmQuerySetPrivate::sqlDelete()
-{
+bool NOrmQuerySetPrivate::sqlDelete() {
     // DELETE on an empty queryset doesn't need a query
     if (whereClause.isNone())
         return true;
@@ -256,8 +256,7 @@ bool NOrmQuerySetPrivate::sqlDelete()
     return true;
 }
 
-bool NOrmQuerySetPrivate::sqlFetch()
-{
+bool NOrmQuerySetPrivate::sqlFetch() {
     if (hasResults || whereClause.isNone())
         return true;
 
@@ -278,8 +277,7 @@ bool NOrmQuerySetPrivate::sqlFetch()
     return true;
 }
 
-bool NOrmQuerySetPrivate::sqlInsert(const QVariantMap &fields, QVariant *insertId)
-{
+bool NOrmQuerySetPrivate::sqlInsert(const QVariantMap& fields, QVariant* insertId) {
     // execute query
     NOrmQuery query(insertQuery(fields));
     if (!query.exec())
@@ -294,8 +292,16 @@ bool NOrmQuerySetPrivate::sqlInsert(const QVariantMap &fields, QVariant *insertI
             const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
             NOrmQuery query(db);
             const NOrmMetaField primaryKey = metaModel.localField("pk");
-            const QString seqName = db.driver()->escapeIdentifier(metaModel.table() + QLatin1Char('_') + primaryKey.column() + QLatin1String("_seq"), QSqlDriver::FieldName);
+            const QString seqName = db.driver()->escapeIdentifier(
+                        metaModel.table() + QLatin1Char('_') + primaryKey.column() + QLatin1String("_seq"),
+                        QSqlDriver::FieldName);
             if (!query.exec(QLatin1String("SELECT CURRVAL('") + seqName + QLatin1String("')")) || !query.next())
+                return false;
+            *insertId = query.value(0);
+        } else if (databaseType == NOrmDatabase::DaMeng) {
+            const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
+            NOrmQuery query(db);
+            if (!query.exec(QLatin1String("SELECT IDENT_CURRENT('") + metaModel.table() + QLatin1String("')")) || !query.next())
                 return false;
             *insertId = query.value(0);
         } else {
@@ -312,13 +318,11 @@ bool NOrmQuerySetPrivate::sqlInsert(const QVariantMap &fields, QVariant *insertI
     return true;
 }
 
-bool NOrmQuerySetPrivate::sqlLoad(QObject *model, int index)
-{
+bool NOrmQuerySetPrivate::sqlLoad(QObject* model, int index) {
     if (!sqlFetch())
         return false;
 
-    if (index < 0 || index >= properties.size())
-    {
+    if (index < 0 || index >= properties.size()) {
         qWarning("NOrmQuerySet out of bounds");
         return false;
     }
@@ -329,19 +333,23 @@ bool NOrmQuerySetPrivate::sqlLoad(QObject *model, int index)
     return true;
 }
 
-static QString aggregationToString(NOrmWhere::AggregateType type){
+static QString aggregationToString(NOrmWhere::AggregateType type) {
     switch (type) {
-    case NOrmWhere::AVG: return QLatin1String("AVG");
-    case NOrmWhere::COUNT: return QLatin1String("COUNT");
-    case NOrmWhere::SUM: return QLatin1String("SUM");
-    case NOrmWhere::MIN: return QLatin1String("MIN");
-    case NOrmWhere::MAX: return QLatin1String("MAX");
+    case NOrmWhere::AVG:
+        return QLatin1String("AVG");
+    case NOrmWhere::COUNT:
+        return QLatin1String("COUNT");
+    case NOrmWhere::SUM:
+        return QLatin1String("SUM");
+    case NOrmWhere::MIN:
+        return QLatin1String("MIN");
+    case NOrmWhere::MAX:
+        return QLatin1String("MAX");
     }
     return QString();
 }
 
-NOrmQuery NOrmQuerySetPrivate::aggregateQuery(const NOrmWhere::AggregateType func, const QString &field) const
-{
+NOrmQuery NOrmQuerySetPrivate::aggregateQuery(const NOrmWhere::AggregateType func, const QString& field) const {
     QSqlDatabase db = NOrm::database();
 
     // build query
@@ -352,7 +360,8 @@ NOrmQuery NOrmQuerySetPrivate::aggregateQuery(const NOrmWhere::AggregateType fun
     const QString where = resolvedWhere.sql(db);
     const QString limit = compiler.orderLimitSql(QStringList(), lowMark, highMark);
 
-    QString sql = QLatin1String("SELECT ") + aggregationToString(func)+"("+field+") "+"FROM " + compiler.fromSql();
+    QString sql =
+            QLatin1String("SELECT ") + aggregationToString(func) + "(" + field + ") " + "FROM " + compiler.fromSql();
     if (!where.isEmpty())
         sql += QLatin1String(" WHERE ") + where;
     sql += limit;
@@ -364,8 +373,7 @@ NOrmQuery NOrmQuerySetPrivate::aggregateQuery(const NOrmWhere::AggregateType fun
 
 /** Returns the SQL query to perform a DELETE on the current set.
  */
-NOrmQuery NOrmQuerySetPrivate::deleteQuery() const
-{
+NOrmQuery NOrmQuerySetPrivate::deleteQuery() const {
     QSqlDatabase db = NOrm::database();
 
     // build query
@@ -388,33 +396,31 @@ NOrmQuery NOrmQuerySetPrivate::deleteQuery() const
 
 /** Returns the SQL query to perform an INSERT for the specified \a fields.
  */
-NOrmQuery NOrmQuerySetPrivate::insertQuery(const QVariantMap &fields) const
-{
+NOrmQuery NOrmQuerySetPrivate::insertQuery(const QVariantMap& fields) const {
     QSqlDatabase db = NOrm::database();
     const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
 
     // perform INSERT
     QStringList fieldColumns;
     QStringList fieldHolders;
-    foreach (const QString &name, fields.keys()) {
+    foreach (const QString& name, fields.keys()) {
         const NOrmMetaField field = metaModel.localField(name.toLatin1());
         fieldColumns << db.driver()->escapeIdentifier(field.column(), QSqlDriver::FieldName);
         fieldHolders << QLatin1String("?");
     }
 
     NOrmQuery query(db);
-    query.prepare(QString::fromLatin1("INSERT INTO %1 (%2) VALUES(%3)").arg(
-                      db.driver()->escapeIdentifier(metaModel.table(), QSqlDriver::TableName),
-                      fieldColumns.join(QLatin1String(", ")), fieldHolders.join(QLatin1String(", "))));
-    foreach (const QString &name, fields.keys())
+    query.prepare(QString::fromLatin1("INSERT INTO %1 (%2) VALUES(%3)")
+                  .arg(db.driver()->escapeIdentifier(metaModel.table(), QSqlDriver::TableName),
+                       fieldColumns.join(QLatin1String(", ")), fieldHolders.join(QLatin1String(", "))));
+    foreach (const QString& name, fields.keys())
         query.addBindValue(fields.value(name));
     return query;
 }
 
 /** Returns the SQL query to perform a SELECT on the current set.
  */
-NOrmQuery NOrmQuerySetPrivate::selectQuery() const
-{
+NOrmQuery NOrmQuerySetPrivate::selectQuery() const {
     QSqlDatabase db = NOrm::database();
 
     // build query
@@ -439,8 +445,7 @@ NOrmQuery NOrmQuerySetPrivate::selectQuery() const
 /** Returns the SQL query to perform an UPDATE on the current set for the
     specified \a fields.
  */
-NOrmQuery NOrmQuerySetPrivate::updateQuery(const QVariantMap &fields) const
-{
+NOrmQuery NOrmQuerySetPrivate::updateQuery(const QVariantMap& fields) const {
     QSqlDatabase db = NOrm::database();
     const NOrmMetaModel metaModel = NOrm::metaModel(m_modelName);
 
@@ -453,7 +458,7 @@ NOrmQuery NOrmQuerySetPrivate::updateQuery(const QVariantMap &fields) const
 
     // add SET
     QStringList fieldAssign;
-    foreach (const QString &name, fields.keys()) {
+    foreach (const QString& name, fields.keys()) {
         const NOrmMetaField field = metaModel.localField(name.toLatin1());
         fieldAssign << db.driver()->escapeIdentifier(field.column(), QSqlDriver::FieldName) + QLatin1String(" = ?");
     }
@@ -466,15 +471,14 @@ NOrmQuery NOrmQuerySetPrivate::updateQuery(const QVariantMap &fields) const
 
     NOrmQuery query(db);
     query.prepare(sql);
-    foreach (const QString &name, fields.keys())
+    foreach (const QString& name, fields.keys())
         query.addBindValue(fields.value(name));
     resolvedWhere.bindValues(query);
 
     return query;
 }
 
-int NOrmQuerySetPrivate::sqlUpdate(const QVariantMap &fields)
-{
+int NOrmQuerySetPrivate::sqlUpdate(const QVariantMap& fields) {
     // UPDATE on an empty queryset doesn't need a query
     if (whereClause.isNone() || fields.isEmpty())
         return 0;
@@ -499,8 +503,7 @@ int NOrmQuerySetPrivate::sqlUpdate(const QVariantMap &fields)
     return query.numRowsAffected();
 }
 
-QList<QVariantMap> NOrmQuerySetPrivate::sqlValues(const QStringList &fields)
-{
+QList<QVariantMap> NOrmQuerySetPrivate::sqlValues(const QStringList& fields) {
     QList<QVariantMap> values;
     if (!sqlFetch())
         return values;
@@ -514,9 +517,9 @@ QList<QVariantMap> NOrmQuerySetPrivate::sqlValues(const QStringList &fields)
         for (int i = 0; i < localFields.size(); ++i)
             fieldPos.insert(localFields[i].name(), i);
     } else {
-        foreach (const QString &name, fields) {
+        foreach (const QString& name, fields) {
             int pos = 0;
-            foreach (const NOrmMetaField &field, localFields) {
+            foreach (const NOrmMetaField& field, localFields) {
                 if (field.name() == name)
                     break;
                 pos++;
@@ -527,7 +530,7 @@ QList<QVariantMap> NOrmQuerySetPrivate::sqlValues(const QStringList &fields)
     }
 
     // extract values
-    foreach (const QVariantList &props, properties) {
+    foreach (const QVariantList& props, properties) {
         QVariantMap map;
         QMap<QString, int>::const_iterator i;
         for (i = fieldPos.constBegin(); i != fieldPos.constEnd(); ++i)
@@ -537,8 +540,7 @@ QList<QVariantMap> NOrmQuerySetPrivate::sqlValues(const QStringList &fields)
     return values;
 }
 
-QList<QVariantList> NOrmQuerySetPrivate::sqlValuesList(const QStringList &fields)
-{
+QList<QVariantList> NOrmQuerySetPrivate::sqlValuesList(const QStringList& fields) {
     QList<QVariantList> values;
     if (!sqlFetch())
         return values;
@@ -552,9 +554,9 @@ QList<QVariantList> NOrmQuerySetPrivate::sqlValuesList(const QStringList &fields
         for (int i = 0; i < localFields.size(); ++i)
             fieldPos << i;
     } else {
-        foreach (const QString &name, fields) {
+        foreach (const QString& name, fields) {
             int pos = 0;
-            foreach (const NOrmMetaField &field, localFields) {
+            foreach (const NOrmMetaField& field, localFields) {
                 if (field.name() == name)
                     break;
                 pos++;
@@ -565,7 +567,7 @@ QList<QVariantList> NOrmQuerySetPrivate::sqlValuesList(const QStringList &fields
     }
 
     // extract values
-    foreach (const QVariantList &props, properties) {
+    foreach (const QVariantList& props, properties) {
         QVariantList list;
         foreach (int pos, fieldPos)
             list << props.at(pos);
@@ -573,6 +575,5 @@ QList<QVariantList> NOrmQuerySetPrivate::sqlValuesList(const QStringList &fields
     }
     return values;
 }
-
 
 /// \endcond

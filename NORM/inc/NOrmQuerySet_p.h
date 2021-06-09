@@ -44,6 +44,7 @@ public:
 private:
     QString databaseColumn(const QString &name);
     QString referenceModel(const QString &modelPath, NOrmMetaModel *metaModel, bool nullable);
+    void limitSql(QString &limit, int lowMark, int highMark);
 
     QSqlDriver *driver;
     NOrmMetaModel baseModel;

@@ -68,11 +68,20 @@ static NOrmDatabase::DatabaseType getDatabaseType(QSqlDatabase &db)
             else
                 return NOrmDatabase::MySqlServer;
         }
+
+        if (query.exec("SELECT * from v$version") && query.next()) {
+            if (query.value(0).toString().contains("DM Database Server")) {
+                return NOrmDatabase::DaMeng;
+            }
+        } else {
+            if (globalDebugEnabled) {
+                qWarning() << "SQL: " << query.executedQuery() << " SQL error: " <<  query.lastError();
+            }
+        }
     }
     return NOrmDatabase::UnknownDB;
 }
 
-static QMutex g_locker;
 static bool initDatabase(QSqlDatabase db)
 {
     NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);
@@ -98,8 +107,6 @@ static bool initDatabase(QSqlDatabase db)
             tmpDB.exec(QObject::tr("use %1;").arg(db.databaseName()));
             tmpDB.close();
         }
-
-        QSqlDatabase::removeDatabase(dbName);
     }
     return true;
 }
@@ -125,18 +132,9 @@ void NOrmQuery::addBindValue(const QVariant &val, QSql::ParamType paramType)
 
 bool NOrmQuery::exec()
 {
-    if (globalDebugEnabled) {
-        qDebug() << "SQL query" << lastQuery();
-        QMapIterator<QString, QVariant> i(boundValues());
-        while (i.hasNext()) {
-            i.next();
-            qDebug() << "SQL   " << i.key().toLatin1().data() << "="
-                     << i.value().toString().toLatin1().data();
-        }
-    }
     if (!QSqlQuery::exec()) {
         if (globalDebugEnabled)
-            qWarning() << "SQL error" << lastError();
+            qWarning() << "SQL: " << executedQuery() << " SQL error: " <<  lastError();
         return false;
     }
     return true;
@@ -144,11 +142,9 @@ bool NOrmQuery::exec()
 
 bool NOrmQuery::exec(const QString &query)
 {
-    if (globalDebugEnabled)
-        qDebug() << "SQL query" << query;
     if (!QSqlQuery::exec(query)) {
         if (globalDebugEnabled)
-            qWarning() << "SQL error" << lastError();
+            qWarning() << "SQL: " << executedQuery() << " SQL error: " <<  lastError();
         return false;
     }
     return true;
@@ -181,6 +177,17 @@ QSqlDatabase NOrm::database()
 
 bool NOrm::setDatabase(QSqlDatabase database)
 {
+    bool ret_openDB = database.isOpen();
+    if (ret_openDB) {
+
+    } else {
+        ret_openDB = database.open();
+        if (ret_openDB) {
+
+        } else {
+            return false;
+        }
+    }
     globalDatabaseType = getDatabaseType(database);
     if (globalDatabaseType == NOrmDatabase::UnknownDB) {
         qWarning() << "Unsupported database driver" << database.driverName();
@@ -191,7 +198,7 @@ bool NOrm::setDatabase(QSqlDatabase database)
         qAddPostRoutine(closeDatabase);
     }
     bool ret = initDatabase(database);
-    bool ret_openDB = database.open();
+
     globalDatabase->reference = database;
     return ret && ret_openDB;
 }

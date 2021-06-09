@@ -185,6 +185,50 @@ QString NOrmWhere::sql(const QSqlDatabase &db) const
 {
     NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);
 
+    switch (databaseType) {
+    case NOrmDatabase::UnknownDB:
+    case NOrmDatabase::Oracle:
+    case NOrmDatabase::Sybase:
+    case NOrmDatabase::Interbase:
+    case NOrmDatabase::DB2:
+    case NOrmDatabase::MSSqlServer:
+        return sqlDefult(db);
+    case NOrmDatabase::MySqlServer:
+        return sqlMysql(db);
+    case NOrmDatabase::PostgreSQL:
+        return sqlPostgre(db);
+    case NOrmDatabase::SQLite:
+        return sqlSqlite(db);
+    case NOrmDatabase::DaMeng:
+        return sqlDaMeng(db);
+    }
+    return QString();
+}
+
+QString NOrmWhere::toString() const
+{
+    if (d->combine == NOrmWherePrivate::NoCombine) {
+        return QLatin1String("NOrmWhere(")
+                  + "key=\"" + d->key + "\""
+                  + ", operation=\"" + NOrmWherePrivate::operationToString(d->operation) + "\""
+                  + ", value=\"" + d->data.toString() + "\""
+                  + ", negate=" + (d->negate ? "true":"false")
+                  + ")";
+    } else {
+        QStringList bits;
+        foreach (const NOrmWhere &childWhere, d->children) {
+            bits.append(childWhere.toString());
+        }
+        if (d->combine == NOrmWherePrivate::OrCombine) {
+            return bits.join(" || ");
+        } else {
+            return bits.join(" && ");
+        }
+    }
+}
+
+QString NOrmWhere::sqlDefult(const QSqlDatabase &db) const
+{
     switch (d->operation) {
         case Equals:
             return d->key + QLatin1String(" = ?");
@@ -215,14 +259,8 @@ QString NOrmWhere::sql(const QSqlDatabase &db) const
         case Contains:
         {
             QString op;
-            if (databaseType == NOrmDatabase::MySqlServer)
-                op = QLatin1String(d->negate ? "NOT LIKE BINARY" : "LIKE BINARY");
-            else
-                op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
-            if (databaseType == NOrmDatabase::SQLite)
-                return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
-            else
-                return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
+            op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
         }
         case IStartsWith:
         case IEndsWith:
@@ -230,22 +268,12 @@ QString NOrmWhere::sql(const QSqlDatabase &db) const
         case IEquals:
         {
             const QString op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
-            if (databaseType == NOrmDatabase::SQLite)
-                return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
-            else if (databaseType == NOrmDatabase::PostgreSQL)
-                return QLatin1String("UPPER(") + d->key + QLatin1String("::text) ") + op + QLatin1String(" UPPER(?)");
-            else
-                return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
         }
         case INotEquals:
         {
             const QString op = QLatin1String(d->negate ? "LIKE" : "NOT LIKE");
-            if (databaseType == NOrmDatabase::SQLite)
-                return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
-            else if (databaseType == NOrmDatabase::PostgreSQL)
-                return QLatin1String("UPPER(") + d->key + QLatin1String("::text) ") + op + QLatin1String(" UPPER(?)");
-            else
-                return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
         }
         case None:
             if (d->combine == NOrmWherePrivate::NoCombine) {
@@ -274,26 +302,311 @@ QString NOrmWhere::sql(const QSqlDatabase &db) const
     return QString();
 }
 
-QString NOrmWhere::toString() const
+QString NOrmWhere::sqlMysql(const QSqlDatabase &db) const
 {
-    if (d->combine == NOrmWherePrivate::NoCombine) {
-        return QLatin1String("NOrmWhere(")
-                  + "key=\"" + d->key + "\""
-                  + ", operation=\"" + NOrmWherePrivate::operationToString(d->operation) + "\""
-                  + ", value=\"" + d->data.toString() + "\""
-                  + ", negate=" + (d->negate ? "true":"false")
-                  + ")";
-    } else {
-        QStringList bits;
-        foreach (const NOrmWhere &childWhere, d->children) {
-            bits.append(childWhere.toString());
+    switch (d->operation) {
+        case Equals:
+            return d->key + QLatin1String(" = ?");
+        case NotEquals:
+            return d->key + QLatin1String(" != ?");
+        case GreaterThan:
+            return d->key + QLatin1String(" > ?");
+        case LessThan:
+            return d->key + QLatin1String(" < ?");
+        case GreaterOrEquals:
+            return d->key + QLatin1String(" >= ?");
+        case LessOrEquals:
+            return d->key + QLatin1String(" <= ?");
+        case IsIn:
+        {
+            QStringList bits;
+            for (int i = 0; i < d->data.toList().size(); i++)
+                bits << QLatin1String("?");
+            if (d->negate)
+                return d->key + QString::fromLatin1(" NOT IN (%1)").arg(bits.join(QLatin1String(", ")));
+            else
+                return d->key + QString::fromLatin1(" IN (%1)").arg(bits.join(QLatin1String(", ")));
         }
-        if (d->combine == NOrmWherePrivate::OrCombine) {
-            return bits.join(" || ");
-        } else {
-            return bits.join(" && ");
+        case IsNull:
+            return d->key + QLatin1String(d->data.toBool() ? " IS NULL" : " IS NOT NULL");
+        case StartsWith:
+        case EndsWith:
+        case Contains:
+        {
+            QString op;
+            op = QLatin1String(d->negate ? "NOT LIKE BINARY" : "LIKE BINARY");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
         }
+        case IStartsWith:
+        case IEndsWith:
+        case IContains:
+        case IEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
+        }
+        case INotEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "LIKE" : "NOT LIKE");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
+        }
+        case None:
+            if (d->combine == NOrmWherePrivate::NoCombine) {
+                return d->negate ? QLatin1String("1 != 0") : QString();
+            } else {
+                QStringList bits;
+                foreach (const NOrmWhere &child, d->children) {
+                    QString atom = child.sql(db);
+                    if (child.d->children.isEmpty())
+                        bits << atom;
+                    else
+                        bits << QString::fromLatin1("(%1)").arg(atom);
+                }
+
+                QString combined;
+                if (d->combine == NOrmWherePrivate::AndCombine)
+                    combined = bits.join(QLatin1String(" AND "));
+                else if (d->combine == NOrmWherePrivate::OrCombine)
+                    combined = bits.join(QLatin1String(" OR "));
+                if (d->negate)
+                    combined = QString::fromLatin1("NOT (%1)").arg(combined);
+                return combined;
+            }
     }
+
+    return QString();
+}
+
+QString NOrmWhere::sqlSqlite(const QSqlDatabase &db) const
+{
+    switch (d->operation) {
+        case Equals:
+            return d->key + QLatin1String(" = ?");
+        case NotEquals:
+            return d->key + QLatin1String(" != ?");
+        case GreaterThan:
+            return d->key + QLatin1String(" > ?");
+        case LessThan:
+            return d->key + QLatin1String(" < ?");
+        case GreaterOrEquals:
+            return d->key + QLatin1String(" >= ?");
+        case LessOrEquals:
+            return d->key + QLatin1String(" <= ?");
+        case IsIn:
+        {
+            QStringList bits;
+            for (int i = 0; i < d->data.toList().size(); i++)
+                bits << QLatin1String("?");
+            if (d->negate)
+                return d->key + QString::fromLatin1(" NOT IN (%1)").arg(bits.join(QLatin1String(", ")));
+            else
+                return d->key + QString::fromLatin1(" IN (%1)").arg(bits.join(QLatin1String(", ")));
+        }
+        case IsNull:
+            return d->key + QLatin1String(d->data.toBool() ? " IS NULL" : " IS NOT NULL");
+        case StartsWith:
+        case EndsWith:
+        case Contains:
+        {
+            QString op;
+            op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
+        }
+        case IStartsWith:
+        case IEndsWith:
+        case IContains:
+        case IEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
+        }
+        case INotEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "LIKE" : "NOT LIKE");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ? ESCAPE '\\'");
+        }
+        case None:
+            if (d->combine == NOrmWherePrivate::NoCombine) {
+                return d->negate ? QLatin1String("1 != 0") : QString();
+            } else {
+                QStringList bits;
+                foreach (const NOrmWhere &child, d->children) {
+                    QString atom = child.sql(db);
+                    if (child.d->children.isEmpty())
+                        bits << atom;
+                    else
+                        bits << QString::fromLatin1("(%1)").arg(atom);
+                }
+
+                QString combined;
+                if (d->combine == NOrmWherePrivate::AndCombine)
+                    combined = bits.join(QLatin1String(" AND "));
+                else if (d->combine == NOrmWherePrivate::OrCombine)
+                    combined = bits.join(QLatin1String(" OR "));
+                if (d->negate)
+                    combined = QString::fromLatin1("NOT (%1)").arg(combined);
+                return combined;
+            }
+    }
+
+    return QString();
+}
+
+QString NOrmWhere::sqlPostgre(const QSqlDatabase &db) const
+{
+    switch (d->operation) {
+        case Equals:
+            return d->key + QLatin1String(" = ?");
+        case NotEquals:
+            return d->key + QLatin1String(" != ?");
+        case GreaterThan:
+            return d->key + QLatin1String(" > ?");
+        case LessThan:
+            return d->key + QLatin1String(" < ?");
+        case GreaterOrEquals:
+            return d->key + QLatin1String(" >= ?");
+        case LessOrEquals:
+            return d->key + QLatin1String(" <= ?");
+        case IsIn:
+        {
+            QStringList bits;
+            for (int i = 0; i < d->data.toList().size(); i++)
+                bits << QLatin1String("?");
+            if (d->negate)
+                return d->key + QString::fromLatin1(" NOT IN (%1)").arg(bits.join(QLatin1String(", ")));
+            else
+                return d->key + QString::fromLatin1(" IN (%1)").arg(bits.join(QLatin1String(", ")));
+        }
+        case IsNull:
+            return d->key + QLatin1String(d->data.toBool() ? " IS NULL" : " IS NOT NULL");
+        case StartsWith:
+        case EndsWith:
+        case Contains:
+        {
+            QString op;
+            op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return d->key + QLatin1String(" ") + op + QLatin1String(" ?");
+        }
+        case IStartsWith:
+        case IEndsWith:
+        case IContains:
+        case IEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return QLatin1String("UPPER(") + d->key + QLatin1String("::text) ") + op + QLatin1String(" UPPER(?)");
+        }
+        case INotEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "LIKE" : "NOT LIKE");
+            return QLatin1String("UPPER(") + d->key + QLatin1String("::text) ") + op + QLatin1String(" UPPER(?)");
+        }
+        case None:
+            if (d->combine == NOrmWherePrivate::NoCombine) {
+                return d->negate ? QLatin1String("1 != 0") : QString();
+            } else {
+                QStringList bits;
+                foreach (const NOrmWhere &child, d->children) {
+                    QString atom = child.sql(db);
+                    if (child.d->children.isEmpty())
+                        bits << atom;
+                    else
+                        bits << QString::fromLatin1("(%1)").arg(atom);
+                }
+
+                QString combined;
+                if (d->combine == NOrmWherePrivate::AndCombine)
+                    combined = bits.join(QLatin1String(" AND "));
+                else if (d->combine == NOrmWherePrivate::OrCombine)
+                    combined = bits.join(QLatin1String(" OR "));
+                if (d->negate)
+                    combined = QString::fromLatin1("NOT (%1)").arg(combined);
+                return combined;
+            }
+    }
+
+    return QString();
+}
+
+QString NOrmWhere::sqlDaMeng(const QSqlDatabase &db) const
+{
+    QString tmp;
+    if (d.data()->data.type() == QVariant::String) {
+        tmp = "?";
+    } else {
+        tmp = "?";
+    }
+
+    switch (d->operation) {
+        case Equals:
+            return d->key + QString(" = %1").arg(tmp);
+        case NotEquals:
+            return d->key + QString(" != %1").arg(tmp);
+        case GreaterThan:
+            return d->key + QString(" > %1").arg(tmp);
+        case LessThan:
+            return d->key + QString(" < %1").arg(tmp);
+        case GreaterOrEquals:
+            return d->key + QString(" >= %1").arg(tmp);
+        case LessOrEquals:
+            return d->key + QString(" <= %1").arg(tmp);
+        case IsIn:
+        {
+            QStringList bits;
+            for (int i = 0; i < d->data.toList().size(); i++)
+                bits << QString("%1").arg(tmp);
+            if (d->negate)
+                return d->key + QString::fromLatin1(" NOT IN (%1)").arg(bits.join(QLatin1String(", ")));
+            else
+                return d->key + QString::fromLatin1(" IN (%1)").arg(bits.join(QLatin1String(", ")));
+        }
+        case IsNull:
+            return d->key + QLatin1String(d->data.toBool() ? " IS NULL" : " IS NOT NULL");
+        case StartsWith:
+        case EndsWith:
+        case Contains:
+        {
+            QString op;
+            op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return d->key + QLatin1String(" ") + op + QString(" %1").arg(tmp);
+        }
+        case IStartsWith:
+        case IEndsWith:
+        case IContains:
+        case IEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "NOT LIKE" : "LIKE");
+            return d->key + QLatin1String(" ") + op + QString(" %1").arg(tmp);
+        }
+        case INotEquals:
+        {
+            const QString op = QLatin1String(d->negate ? "LIKE" : "NOT LIKE");
+            return d->key + QLatin1String(" ") + op + QString(" %1").arg(tmp);
+        }
+        case None:
+            if (d->combine == NOrmWherePrivate::NoCombine) {
+                return d->negate ? QLatin1String("1 != 0") : QString();
+            } else {
+                QStringList bits;
+                foreach (const NOrmWhere &child, d->children) {
+                    QString atom = child.sql(db);
+                    if (child.d->children.isEmpty())
+                        bits << atom;
+                    else
+                        bits << QString::fromLatin1("(%1)").arg(atom);
+                }
+
+                QString combined;
+                if (d->combine == NOrmWherePrivate::AndCombine)
+                    combined = bits.join(QLatin1String(" AND "));
+                else if (d->combine == NOrmWherePrivate::OrCombine)
+                    combined = bits.join(QLatin1String(" OR "));
+                if (d->negate)
+                    combined = QString::fromLatin1("NOT (%1)").arg(combined);
+                return combined;
+            }
+    }
+
+    return QString();
 }
 QString NOrmWherePrivate::operationToString(NOrmWhere::Operation operation)
 {

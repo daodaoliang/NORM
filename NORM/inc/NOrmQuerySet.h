@@ -294,7 +294,7 @@ template <class T> NOrmQuerySet<T> NOrmQuerySet<T>::selectRelated(const QStringL
 
 template <class T> int NOrmQuerySet<T>::size() {
     if (!d->sqlFetch())
-        return 0;
+        return -1;
     return d->properties.size();
 }
 

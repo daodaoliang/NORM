@@ -58,6 +58,13 @@ public:
     QString toString() const;
 
 private:
+    QString sqlDefult(const QSqlDatabase &db) const;
+    QString sqlMysql(const QSqlDatabase &db) const;
+    QString sqlSqlite(const QSqlDatabase &db) const;
+    QString sqlPostgre(const QSqlDatabase &db) const;
+    QString sqlDaMeng(const QSqlDatabase &db) const;
+
+private:
     QSharedDataPointer<NOrmWherePrivate> d;
     friend class NOrmCompiler;
 };

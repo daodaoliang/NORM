@@ -2,6 +2,7 @@
 #define NORM_H
 
 #include "NOrmMetaModel.h"
+#include <QStack>
 
 class QObject;
 class QSqlDatabase;

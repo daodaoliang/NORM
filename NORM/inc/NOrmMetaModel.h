@@ -61,6 +61,24 @@ public:
     QString table() const;
 
 private:
+    QString getBoolType(NOrmDatabase::DatabaseType databaseType) const;
+    QString getByteArrayType(NOrmDatabase::DatabaseType databaseType, int maxLength) const;
+    QString getDateType(NOrmDatabase::DatabaseType databaseType) const;
+    QString getDateTimeType(NOrmDatabase::DatabaseType databaseType) const;
+    QString getDoubleType(NOrmDatabase::DatabaseType databaseType) const;
+    QString getIntType(NOrmDatabase::DatabaseType databaseType) const;
+    QString getLongLongType(NOrmDatabase::DatabaseType databaseType) const;
+    QString getStringType(NOrmDatabase::DatabaseType databaseType, int maxLength) const;
+    QString getTimeType(NOrmDatabase::DatabaseType databaseType) const;
+    QString getStringListType(NOrmDatabase::DatabaseType databaseType, int maxLength) const;
+
+    QString attributeNull(NOrmDatabase::DatabaseType databaseType) const;
+    QString attributeUnique(NOrmDatabase::DatabaseType databaseType) const;
+    QString attributePrimaryKey(NOrmDatabase::DatabaseType databaseType) const;
+    QString attributeAutoIncrement(NOrmDatabase::DatabaseType databaseType, const NOrmMetaField &field) const;
+
+
+private:
     QSharedDataPointer<NOrmMetaModelPrivate> d;
 };
 

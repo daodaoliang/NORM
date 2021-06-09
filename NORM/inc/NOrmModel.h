@@ -3,8 +3,8 @@
 
 #include <QObject>
 #include <QVariant>
-
 #include "NOrm_p.h"
+#include "saveinthread.h"
 
 class NOrmModel : public QObject
 {
