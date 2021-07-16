@@ -1,7 +1,6 @@
 #include <QDebug>
 #include <QSqlDriver>
 #include <QSqlRecord>
-
 #include "NOrm.h"
 #include "NOrm_p.h"
 #include "NOrmQuerySet.h"
@@ -38,15 +37,16 @@ void NOrmCompiler::limitSql(QString &limit, int lowMark, int highMark)
     case NOrmDatabase::Interbase:
     case NOrmDatabase::DB2:
     case NOrmDatabase::DaMeng:
-        if (lowMark < 0) {
-        } else if (lowMark > 0) {
-            limit += QString(" LIMIT ") + QString::number(lowMark);
-            if (highMark > 0) {
-                limit += QString(", ") + QString::number(highMark);
-            }
-        } else {
-            if (highMark > 0) {
+        if (highMark > 0) {
+            if (lowMark > 0) {
+                limit += QString(" LIMIT ") + QString::number(lowMark);
+                limit += QString(", ") + QString::number(highMark-lowMark);
+            } else {
                 limit += QString(" LIMIT ") + QString::number(highMark);
+            }
+        } else if(highMark == 0) {
+            if (lowMark > 0) {
+                limit += QString(" LIMIT ") + QString::number(lowMark);
             }
         }
         break;
@@ -140,14 +140,14 @@ QStringList NOrmCompiler::fieldNames(bool recurse,
         NOrmMetaModel metaForeign = NOrm::metaModel(metaModel->foreignFields()[fkName]);
         bool nullableForeign = metaModel->localField(fkName + QByteArray("_id")).isNullable();
         QString fkS(fkName);
-        if ((fields != 0) && (fields->contains(fkS))) {
+        if ((fields != nullptr) && (fields->contains(fkS))) {
             QStringList nsl = fields->filter(QRegExp("^" + fkS + "__")).replaceInStrings(QRegExp("^" + fkS + "__"), "");
             columns +=
                     fieldNames(recurse, &nsl, &metaForeign, pathPrefix + QString::fromLatin1(fkName), nullableForeign);
         }
 
-        if (fields == 0) {
-            columns += fieldNames(recurse, 0, &metaForeign, pathPrefix + QString::fromLatin1(fkName), nullableForeign);
+        if (fields == nullptr) {
+            columns += fieldNames(recurse, nullptr, &metaForeign, pathPrefix + QString::fromLatin1(fkName), nullableForeign);
         }
     }
     return columns;

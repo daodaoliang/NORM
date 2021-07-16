@@ -2,7 +2,6 @@
 #define NORM_QUERYSET_P_H
 
 #include <QStringList>
-
 #include "NOrm_p.h"
 #include "NOrmWhere.h"
 
@@ -37,7 +36,7 @@ class NOrmCompiler
 public:
     NOrmCompiler(const char *modelName, const QSqlDatabase &db);
     QString fromSql();
-    QStringList fieldNames(bool recurse, const QStringList *fields = 0, NOrmMetaModel *metaModel = 0, const QString &modelPath = QString(), bool nullable = false);
+    QStringList fieldNames(bool recurse, const QStringList *fields = nullptr, NOrmMetaModel *metaModel = nullptr, const QString &modelPath = QString(), bool nullable = false);
     QString orderLimitSql(const QStringList &orderBy, int lowMark, int highMark);
     void resolve(NOrmWhere &where);
 
@@ -64,7 +63,7 @@ public:
     NOrmWhere resolvedWhere(const QSqlDatabase &db) const;
     bool sqlDelete();
     bool sqlFetch();
-    bool sqlInsert(const QVariantMap &fields, QVariant *insertId = 0);
+    bool sqlInsert(const QVariantMap &fields, QVariant *insertId = nullptr);
     bool sqlLoad(QObject *model, int index);
     int sqlUpdate(const QVariantMap &fields);
     QList<QVariantMap> sqlValues(const QStringList &fields);
@@ -91,9 +90,7 @@ public:
 
 private:
     Q_DISABLE_COPY(NOrmQuerySetPrivate)
-
     QByteArray m_modelName;
-
     friend class NOrmMetaModel;
 };
 

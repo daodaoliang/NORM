@@ -7,12 +7,12 @@
 INCLUDEPATH += $$PWD\inc
 
 win32{
-    LIBS += -L$$PWD/../bin/ -lNORM
+    LIBS += -L$$PWD/../bin/ -lnorm_sql
     DEPENDPATH += $$PWD/../bin
 }
 
 unix{
-    LIBS += -L$$PWD/../bin/ -lNORM
+    LIBS += -L$$PWD/../bin/ -lnorm_sql
     DEPENDPATH += $$PWD/../bin
 }
 

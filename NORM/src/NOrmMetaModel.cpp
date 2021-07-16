@@ -48,21 +48,43 @@ enum ForeignKeyConstraint
     SetNull
 };
 
+// 数据表对象字段私有类
 class NOrmMetaFieldPrivate : public QSharedData
 {
 public:
     NOrmMetaFieldPrivate();
 
+    // 是否自增索引
     bool autoIncrement;
+
+    // 列名字
     QString db_column;
+
+    // 外键管理模型名字
     QByteArray foreignModel;
+
+    // 是否是索引字段
     bool index;
+
+    // 最大长度(字符串类型)
     int maxLength;
+
+    // 模型列名字
     QByteArray name;
+
+    // 是否允许null
     bool null;
+
+    // 数据字段类型
     QVariant::Type type;
+
+    // 是否是唯一性约束
     bool unique;
+
+    // 是否是空
     bool blank;
+
+    // 是否含有删除约束
     ForeignKeyConstraint deleteConstraint;
 };
 
@@ -142,7 +164,6 @@ QVariant NOrmMetaField::toDatabase(const QVariant &value) const
     if (d->type == QVariant::String && !d->null && value.isNull()){
         return QLatin1String("");
     } else if (!d->foreignModel.isEmpty() && d->type == QVariant::Int && d->null && !value.toInt()) {
-        // store 0 foreign key as NULL if the field is NULL
         return QVariant();
     } else if (d->type == QVariant::StringList) {
         QStringList tmpStr = value.value<QStringList>();
@@ -181,40 +202,56 @@ static bool stringToBool(const QString &value)
     return value.toLower() == QLatin1String("true") || value == QLatin1String("1");
 }
 
+// 数据表元模型似有类
 class NOrmMetaModelPrivate : public QSharedData
 {
 public:
+    // 数据表名字
     QString className;
+
+    // 包含的列信息
     QList<NOrmMetaField> localFields;
+
+    // 外键列信息
     QMap<QByteArray, QByteArray> foreignFields;
+
+    // 主键列表
     QByteArray primaryKey;
+
+    // 表名字
     QString table;
+
+    // 唯一性字段
     QList<QByteArray> uniqueTogether;
 };
 
-NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
-    : d(new NOrmMetaModelPrivate)
+NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta) : d(new NOrmMetaModelPrivate)
 {
     if (!meta)
         return;
 
+    // 类名字映射
     d->className = meta->className();
+
+    // 表名字映射
     d->table = QString::fromLatin1(meta->className()).toLower();
 
-    // parse table options
+    // 解析数据表的操作项
     const int optionsIndex = meta->indexOfClassInfo("__meta__");
     if (optionsIndex >= 0) {
         QMap<QString, QString> options = parseOptions(meta->classInfo(optionsIndex).value());
         QMapIterator<QString, QString> option(options);
         while (option.hasNext()) {
             option.next();
-            if (option.key() == QLatin1String("db_table"))
+            if (option.key() == QLatin1String("db_table")) {
                 d->table = option.value();
-            else if (option.key() == QLatin1String("unique_together"))
+            } else if (option.key() == QLatin1String("unique_together")) {
                 d->uniqueTogether = option.value().toLatin1().split(',');
+            }
         }
     }
 
+    // 逐个属性解析
     const int count = meta->propertyCount();
     for(int i = QObject::staticMetaObject.propertyCount(); i < count; ++i)
     {
@@ -222,7 +259,7 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
         if (!qstrcmp(meta->property(i).name(), "pk"))
             continue;
 
-        // parse field options
+        // 解析字段属性
         bool autoIncrementOption = false;
         QString dbColumnOption;
         bool dbIndexOption = false;
@@ -236,6 +273,7 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
         const int infoIndex = meta->indexOfClassInfo(meta->property(i).name());
         if (infoIndex >= 0)
         {
+            // 属性映射
             QMap<QString, QString> options = parseOptions(meta->classInfo(infoIndex).value());
             QMapIterator<QString, QString> option(options);
             while (option.hasNext()) {
@@ -272,11 +310,11 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
             }
         }
 
-        // ignore field
+        // 忽略字段
         if (ignoreFieldOption)
             continue;
 
-        // foreign field
+        // 外键字段
         if (typeName.endsWith(QLatin1Char('*'))) {
             const QByteArray fkName = meta->property(i).name();
             const QByteArray fkModel = typeName.left(typeName.size() - 1).toLatin1();
@@ -284,9 +322,6 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
 
             NOrmMetaField field;
             field.d->name = fkName + "_id";
-            // FIXME : the key is not necessarily an INTEGER field, we should
-            // probably perform a lookup on the foreign model, but are we sure
-            // it is already registered?
             field.d->type = QVariant::Int;
             field.d->foreignModel = fkModel;
             field.d->db_column = dbColumnOption.isEmpty() ? QString::fromLatin1(field.d->name) : dbColumnOption;
@@ -297,7 +332,7 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
             continue;
         }
 
-        // local field
+        // 表字段
         NOrmMetaField field;
         field.d->name = meta->property(i).name();
         field.d->type = meta->property(i).type();
@@ -318,7 +353,7 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
         d->localFields << field;
     }
 
-    // automatic primary key
+    // 自增主键
     if (d->primaryKey.isEmpty()) {
         NOrmMetaField field;
         field.d->name = "id";
@@ -332,17 +367,10 @@ NOrmMetaModel::NOrmMetaModel(const QMetaObject *meta)
 
 }
 
-/*!
-    Constructs a copy of \a other.
-*/
-NOrmMetaModel::NOrmMetaModel(const NOrmMetaModel &other)
-    : d(other.d)
+NOrmMetaModel::NOrmMetaModel(const NOrmMetaModel &other) : d(other.d)
 {
 }
 
-/*!
-    Destroys the meta model.
-*/
 NOrmMetaModel::~NOrmMetaModel()
 {
 }
@@ -352,17 +380,11 @@ QString NOrmMetaModel::className() const
     return d->className;
 }
 
-/*!
-    Determine whether this is a valid model, or just default constructed
- */
 bool NOrmMetaModel::isValid() const
 {
     return !d->table.isNull();
 }
 
-/*!
-    Assigns \a other to this meta model.
-*/
 NOrmMetaModel& NOrmMetaModel::operator=(const NOrmMetaModel& other)
 {
     d = other.d;
@@ -483,7 +505,6 @@ QStringList NOrmMetaModel::createTableSql() const
                         break;
                     }
                 }
-
                 constraintSql << constraint;
             } else {
                 fieldSql += QString::fromLatin1(" REFERENCES %1 (%2)").arg(
@@ -616,9 +637,6 @@ void NOrmMetaModel::setForeignKey(QObject *model, const char *name, QObject *val
     }
 }
 
-/*!
-    Loads the given properties into a \a model instance.
-*/
 void NOrmMetaModel::load(QObject *model, const QVariantList &properties, int &pos, const QStringList &relatedFields) const
 {
     // process local fields

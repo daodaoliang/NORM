@@ -1,6 +1,12 @@
 #ifndef NORM_H
 #define NORM_H
 
+/*
+ * 描述: NORM api接口
+ * 作者: daodaoliang@yeah.net
+ * 时间: 2021-07-16
+ */
+
 #include "NOrmMetaModel.h"
 #include <QStack>
 
@@ -8,6 +14,9 @@ class QObject;
 class QSqlDatabase;
 class QSqlQuery;
 class QString;
+
+// 前置声明
+extern QMap<QByteArray, NOrmMetaModel> globalMetaModels;
 
 /**
  * @brief The NOrm class

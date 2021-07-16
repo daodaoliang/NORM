@@ -3,7 +3,7 @@ QT += sql
 
 TEMPLATE = lib
 CONFIG += shared
-TARGET = NORM
+TARGET = norm_sql
 DEFINES += NORM_LIBRARY
 CONFIG += c++11
 
@@ -12,7 +12,7 @@ win32{
     RC_FILE += ./NORM_resource.rc
 }
 unix{
-    VERSION = 1.0.3
+    VERSION = 1.0.4
 }
 
 # 源码信息

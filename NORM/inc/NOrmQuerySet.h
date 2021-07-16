@@ -1,13 +1,18 @@
 #ifndef NORM_QUERYSET_H
 #define NORM_QUERYSET_H
 
+/*
+ * 描述: NORM 结果集合
+ * 作者: daodaoliang@yeah.net
+ * 时间: 2021-07-16
+ */
+
 #include "NOrm.h"
 #include "NOrmWhere.h"
 #include "NOrmQuerySet_p.h"
 
 template <class T> class NOrmQuerySet {
 public:
-    /** \cond declarations for STL-style container algorithms */
     typedef int size_type;
     typedef T value_type;
     typedef value_type *pointer;
@@ -15,39 +20,31 @@ public:
     typedef value_type &reference;
     typedef const value_type &const_reference;
     typedef qptrdiff difference_type;
-    /** \endcond */
 
     class const_iterator {
         friend class NOrmQuerySet;
 
     public:
-        /** A synonym for std::bidirectional_iterator_tag indicating this iterator
-         *  permits bidirectional access.
-         */
         typedef std::bidirectional_iterator_tag iterator_category;
-
-        /** \cond declarations for STL-style container algorithms */
         typedef qptrdiff difference_type;
         typedef T value_type;
         typedef T *pointer;
         typedef T &reference;
-        /** \endcond */
 
         const_iterator() : m_querySet(0), m_fetched(-1), m_offset(0) {}
-
-        /** Constructs a copy of \p other.
-         */
-        const_iterator(const const_iterator &other)
-            : m_querySet(other.m_querySet), m_fetched(-1), m_offset(other.m_offset) {}
+        const_iterator(const const_iterator &other) : m_querySet(other.m_querySet), m_fetched(-1), m_offset(other.m_offset) {}
 
     private:
-        const_iterator(const NOrmQuerySet<T> *querySet, int offset = 0)
-            : m_querySet(querySet), m_fetched(-1), m_offset(offset) {}
+        const_iterator(const NOrmQuerySet<T> *querySet, int offset = 0) : m_querySet(querySet), m_fetched(-1), m_offset(offset) {}
 
     public:
-        const T &operator*() const { return *t(); }
+        const T &operator*() const {
+            return *t();
+        }
 
-        const T *operator->() const { return t(); }
+        const T *operator->() const {
+            return t();
+        }
 
         bool operator==(const const_iterator &other) const {
             return m_querySet == other.m_querySet && m_offset == other.m_offset;
@@ -118,7 +115,6 @@ public:
         const NOrmQuerySet<T> *m_querySet;
         mutable int m_fetched;
         mutable T m_object;
-
         int m_offset;
     };
 
@@ -161,21 +157,15 @@ private:
     NOrmQuerySetPrivate *d;
 };
 
-/** Constructs a new queryset.
- */
-template <class T> NOrmQuerySet<T>::NOrmQuerySet() { d = new NOrmQuerySetPrivate(T::staticMetaObject.className()); }
+template <class T> NOrmQuerySet<T>::NOrmQuerySet() {
+    d = new NOrmQuerySetPrivate(T::staticMetaObject.className());
+}
 
-/** Constructs a copy of \a other.
- *
- * \param other
- */
 template <class T> NOrmQuerySet<T>::NOrmQuerySet(const NOrmQuerySet<T> &other) {
     other.d->counter.ref();
     d = other.d;
 }
 
-/** Destroys the queryset.
- */
 template <class T> NOrmQuerySet<T>::~NOrmQuerySet() {
     if (!d->counter.deref())
         delete d;
@@ -259,7 +249,6 @@ template <class T> NOrmQuerySet<T> NOrmQuerySet<T>::limit(int pos, int length) c
     NOrmQuerySet<T> other = all();
     other.d->lowMark += pos;
     if (length > 0) {
-        // calculate new high mark
         other.d->highMark = other.d->lowMark + length;
         // never exceed the current high mark
         if (d->highMark > 0 && other.d->highMark > d->highMark)
@@ -275,15 +264,15 @@ template <class T> NOrmQuerySet<T> NOrmQuerySet<T>::none() const {
 }
 
 template <class T> NOrmQuerySet<T> NOrmQuerySet<T>::orderBy(const QStringList &keys) const {
-    // it is not possible to change ordering once a limit has been set
     Q_ASSERT(!d->lowMark && !d->highMark);
-
     NOrmQuerySet<T> other = all();
     other.d->orderBy << keys;
     return other;
 }
 
-template <class T> bool NOrmQuerySet<T>::remove() { return d->sqlDelete(); }
+template <class T> bool NOrmQuerySet<T>::remove() {
+    return d->sqlDelete();
+}
 
 template <class T> NOrmQuerySet<T> NOrmQuerySet<T>::selectRelated(const QStringList &relatedFields) const {
     NOrmQuerySet<T> other = all();
@@ -298,7 +287,9 @@ template <class T> int NOrmQuerySet<T>::size() {
     return d->properties.size();
 }
 
-template <class T> int NOrmQuerySet<T>::update(const QVariantMap &fields) { return d->sqlUpdate(fields); }
+template <class T> int NOrmQuerySet<T>::update(const QVariantMap &fields) {
+    return d->sqlUpdate(fields);
+}
 
 template <class T> QList<QVariantMap> NOrmQuerySet<T>::values(const QStringList &fields) {
     return d->sqlValues(fields);
@@ -308,7 +299,9 @@ template <class T> QList<QVariantList> NOrmQuerySet<T>::valuesList(const QString
     return d->sqlValuesList(fields);
 }
 
-template <class T> NOrmWhere NOrmQuerySet<T>::where() const { return d->resolvedWhere(NOrm::database()); }
+template <class T> NOrmWhere NOrmQuerySet<T>::where() const {
+    return d->resolvedWhere(NOrm::database());
+}
 
 template <class T> NOrmQuerySet<T> &NOrmQuerySet<T>::operator=(const NOrmQuerySet<T> &other) {
     other.d->counter.ref();

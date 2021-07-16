@@ -62,9 +62,9 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // workflow 005 --> 数据增加测试（10000条数据）
+    // workflow 005 --> 数据增加测试（100条数据）
     NOrm::database().transaction();
-    for (int index = 0; index != 10000; ++index) {
+    for (int index = 0; index != 100; ++index) {
         TestTable test_case;
         test_case.setTestFieldBool(true);
         test_case.setTestFieldByteArray(QByteArray(10, 'a'));
@@ -84,28 +84,42 @@ int main(int argc, char *argv[]) {
     NOrmQuerySet<TestTable> testTables_case;
     qDebug() << QObject::tr("当前数据库共有数据:%1条").arg(testTables_case.count());
 
-    // 数据查询测试 --> 0062 单where 查询多条数据
+    // 数据查询测试 --> 0062 单where 查询单条数据
     NOrmQuerySet<TestTable> queryMany;
-    NOrmQuerySet<TestTable> rets = queryMany.filter(NOrmWhere("testFieldBool", NOrmWhere::GreaterOrEquals, true));
-    for (int tmpIndex = 0; tmpIndex != rets.size(); ++tmpIndex) {
-        qDebug() << QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
+    TestTable* rets_single = queryMany.get(NOrmWhere("testFieldBool", NOrmWhere::GreaterOrEquals, true));
+
+    if(rets_single){
+        // 打印测试
+        qDebug() << QObject::tr("查询数据的结果主键:%1").arg(rets_single->pk().toString());
     }
 
-    // 数据查询测试 --> 0063 多where查询 与查询
-    rets = queryMany.filter(NOrmWhere("testFieldInt", NOrmWhere::GreaterOrEquals, 1) &&
-                            NOrmWhere("testFieldInt", NOrmWhere::LessOrEquals, 5));
+    // 数据查询测试 --> 0063 多 where查询
+    NOrmQuerySet<TestTable> rets = queryMany.filter(NOrmWhere("testFieldInt", NOrmWhere::GreaterOrEquals, 1) && NOrmWhere("testFieldInt", NOrmWhere::LessOrEquals, 5));
     for (int tmpIndex = 0; tmpIndex != rets.size(); ++tmpIndex) {
-        qDebug() << QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
+        // 读取这一行数据
+        auto rowData = rets.at(tmpIndex);
+
+        // 打印测试
+        qDebug() << QObject::tr("查询数据的结果主键:%1").arg(rowData->pk().toString());
+
+        // 内存释放
+        delete rowData;
     }
 
-    // 数据查询测试 --> 0064 多where查询 或查询
-    rets = queryMany.filter(NOrmWhere("testFieldInt", NOrmWhere::GreaterOrEquals, 4) ||
-                            NOrmWhere("testFieldInt", NOrmWhere::LessOrEquals, 2));
+    // 数据查询测试 --> 0064 多where查询
+    rets = queryMany.filter(NOrmWhere("testFieldInt", NOrmWhere::GreaterOrEquals, 4) || NOrmWhere("testFieldInt", NOrmWhere::LessOrEquals, 2));
     for (int tmpIndex = 0; tmpIndex != rets.size(); ++tmpIndex) {
-        qDebug() << QObject::tr("查询数据的结果主键:%1").arg(rets.at(tmpIndex)->pk().toString());
+        // 读取这一行数据
+        auto rowData = rets.at(tmpIndex);
+
+        // 打印测试
+        qDebug() << QObject::tr("查询数据的结果主键:%1").arg(rowData->pk().toString());
+
+        // 内存释放
+        delete rowData;
     }
 
     qDebug() << "************************测试用例结束**********************************";
     qDebug() << " 测试用例花费时间:" << mCountTime.elapsed() << " 毫秒";
-    return a.exec();
+    return 0;
 }

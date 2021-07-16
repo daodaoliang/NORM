@@ -9,15 +9,22 @@
 #include <QStack>
 #include "NOrm.h"
 
+// 链接前缀
 static const char *connectionPrefix = "_norm_";
 
+// 对象映射
 QMap<QByteArray, NOrmMetaModel> globalMetaModels = QMap<QByteArray, NOrmMetaModel>();
-static NOrmDatabase *globalDatabase = 0;
+
+// 数据库对象
+static NOrmDatabase *globalDatabase = nullptr;
+
+// 数据库类型
 static NOrmDatabase::DatabaseType globalDatabaseType = NOrmDatabase::UnknownDB;
+
+// 调试模式
 static bool globalDebugEnabled = false;
 
-NOrmDatabase::NOrmDatabase(QObject *parent)
-    : QObject(parent), connectionId(0)
+NOrmDatabase::NOrmDatabase(QObject *parent) : QObject(parent), connectionId(0)
 {
 }
 
@@ -27,11 +34,19 @@ void NOrmDatabase::threadFinished()
     if (!thread)
         return;
 
-    // cleanup database connection for the thread
+    // 清理线程中的数据库链接
     QMutexLocker locker(&mutex);
+
+    // 线程结束时 释放 数据库资源
     disconnect(thread, SIGNAL(finished()), this, SLOT(threadFinished()));
+
+    // 获取数据库链接名字
     const QString connectionName = copies.value(thread).connectionName();
+
+    // 移除映射表
     copies.remove(thread);
+
+    // 数据库链接移除
     if (connectionName.startsWith(QLatin1String(connectionPrefix)))
         QSqlDatabase::removeDatabase(connectionName);
 }
@@ -39,34 +54,32 @@ void NOrmDatabase::threadFinished()
 static void closeDatabase()
 {
     delete globalDatabase;
-    globalDatabase = 0;
+    globalDatabase = nullptr;
 }
 
 static NOrmDatabase::DatabaseType getDatabaseType(QSqlDatabase &db)
 {
     const QString driverName = db.driverName();
-    if (driverName == QLatin1String("QMYSQL") ||
-        driverName == QLatin1String("QMYSQL3"))
+    if (driverName == QLatin1String("QMYSQL") || driverName == QLatin1String("QMYSQL3")) {
         return NOrmDatabase::MySqlServer;
-    else if (driverName == QLatin1String("QSQLITE") ||
-             driverName == QLatin1String("QSQLITE2"))
+    } else if (driverName == QLatin1String("QSQLITE") || driverName == QLatin1String("QSQLITE2")) {
         return NOrmDatabase::SQLite;
-    else if (driverName == QLatin1String("QPSQL"))
+    } else if (driverName == QLatin1String("QPSQL")) {
         return NOrmDatabase::PostgreSQL;
-    else if (driverName == QLatin1String("QODBC")) {
+    } else if (driverName == QLatin1String("QODBC")) {
         QSqlQuery query(db);
         if (query.exec("SELECT sqlite_version()"))
             return NOrmDatabase::SQLite;
 
-        if (query.exec("SELECT @@version") && query.next() &&
-            query.value(0).toString().contains("Microsoft SQL Server"))
-                return NOrmDatabase::MSSqlServer;
+        if (query.exec("SELECT @@version") && query.next() && query.value(0).toString().contains("Microsoft SQL Server"))
+            return NOrmDatabase::MSSqlServer;
 
         if (query.exec("SELECT version()") && query.next()) {
-            if (query.value(0).toString().contains("PostgreSQL"))
+            if (query.value(0).toString().contains("PostgreSQL")) {
                 return NOrmDatabase::PostgreSQL;
-            else
+            } else {
                 return NOrmDatabase::MySqlServer;
+            }
         }
 
         if (query.exec("SELECT * from v$version") && query.next()) {
@@ -84,9 +97,12 @@ static NOrmDatabase::DatabaseType getDatabaseType(QSqlDatabase &db)
 
 static bool initDatabase(QSqlDatabase db)
 {
+    // 数据库的默认创建(目前仅支持 sqlite 和 mysql)
     NOrmDatabase::DatabaseType databaseType = NOrmDatabase::databaseType(db);
+
+    // sqlite
     if (databaseType == NOrmDatabase::SQLite) {
-        // enable foreign key constraint handling
+        // 确保外见约束的处理
         NOrmQuery query(db);
         query.prepare("PRAGMA foreign_keys=on");
         query.exec();
@@ -111,42 +127,41 @@ static bool initDatabase(QSqlDatabase db)
     return true;
 }
 
-NOrmQuery::NOrmQuery(QSqlDatabase db)
-    : QSqlQuery(db)
+NOrmQuery::NOrmQuery(QSqlDatabase db) : QSqlQuery(db)
 {
     if (NOrmDatabase::databaseType(db) == NOrmDatabase::MSSqlServer) {
-        // default to fast-forward cursor
+        // 设置前置游标
         setForwardOnly(true);
     }
 }
 
 void NOrmQuery::addBindValue(const QVariant &val, QSql::ParamType paramType)
 {
-    // this hack is required so that we do not store a mix of local
-    // and UTC times
-    if (val.type() == QVariant::DateTime)
+    // this hack is required so that we do not store a mix of local and UTC times
+    if (val.type() == QVariant::DateTime) {
         QSqlQuery::addBindValue(val.toDateTime().toLocalTime(), paramType);
-    else
+    } else {
         QSqlQuery::addBindValue(val, paramType);
+    }
 }
 
 bool NOrmQuery::exec()
 {
     if (!QSqlQuery::exec()) {
-        if (globalDebugEnabled)
-            qWarning() << "SQL: " << executedQuery() << " SQL error: " <<  lastError();
         return false;
     }
+    if (globalDebugEnabled)
+        qWarning() << "SQL: " << executedQuery() << " SQL error: " <<  lastError();
     return true;
 }
 
 bool NOrmQuery::exec(const QString &query)
 {
     if (!QSqlQuery::exec(query)) {
-        if (globalDebugEnabled)
-            qWarning() << "SQL: " << executedQuery() << " SQL error: " <<  lastError();
         return false;
     }
+    if (globalDebugEnabled)
+        qWarning() << "SQL: " << executedQuery() << " SQL error: " <<  lastError();
     return true;
 }
 
@@ -155,36 +170,38 @@ QSqlDatabase NOrm::database()
     if (!globalDatabase)
         return QSqlDatabase();
 
-    // if we are in the main thread, return reference connection
+    // 主线程返回主链接
     QThread *thread = QThread::currentThread();
     if (thread == globalDatabase->thread())
         return globalDatabase->reference;
 
-    // if we have a connection for this thread, return it
+    // 该链接已经创建过则直接返回
     QMutexLocker locker(&globalDatabase->mutex);
     if (globalDatabase->copies.contains(thread))
         return globalDatabase->copies[thread];
 
-    // create a new connection for this thread
+    // 新的线程则创建一个新的数据库链接
     QObject::connect(thread, SIGNAL(finished()), globalDatabase, SLOT(threadFinished()));
-    QSqlDatabase db = QSqlDatabase::cloneDatabase(globalDatabase->reference,
-        QLatin1String(connectionPrefix) + QString::number(globalDatabase->connectionId++));
-    db.open();
-    initDatabase(db);
+    QSqlDatabase db = QSqlDatabase::cloneDatabase(globalDatabase->reference, QLatin1String(connectionPrefix) + QString::number(globalDatabase->connectionId++));
+    if(db.open()){
+        initDatabase(db);
+        if(globalDebugEnabled){
+            qDebug() << "线程:" << QThread::currentThread() << "创建了一个新的数据库链接 " << globalDatabase->connectionId;
+        }
+    } else {
+        qWarning() << "线程:" << QThread::currentThread() << "创建了一个新的数据库链接失败 " << globalDatabase->connectionId;
+    }
     globalDatabase->copies.insert(thread, db);
     return db;
 }
 
 bool NOrm::setDatabase(QSqlDatabase database)
 {
+    // 数据库确保打开
     bool ret_openDB = database.isOpen();
-    if (ret_openDB) {
-
-    } else {
+    if (!ret_openDB){
         ret_openDB = database.open();
-        if (ret_openDB) {
-
-        } else {
+        if (!ret_openDB) {
             return false;
         }
     }
@@ -197,34 +214,27 @@ bool NOrm::setDatabase(QSqlDatabase database)
         globalDatabase = new NOrmDatabase();
         qAddPostRoutine(closeDatabase);
     }
+
+    // 初始化数据库
     bool ret = initDatabase(database);
 
     globalDatabase->reference = database;
     return ret && ret_openDB;
 }
 
-/*!
-    Returns whether debugging information should be printed.
-
-    \sa setDebugEnabled()
-*/
 bool NOrm::isDebugEnabled()
 {
     return globalDebugEnabled;
 }
 
-/*!
-    Sets whether debugging information should be printed.
-
-    \sa isDebugEnabled()
-*/
 void NOrm::setDebugEnabled(bool enabled)
 {
     globalDebugEnabled = enabled;
 }
 
-static void norm_topsort(const QByteArray &modelName, QHash<QByteArray, bool> &visited,
-                            QStack<NOrmMetaModel> &stack)
+static void norm_topsort(const QByteArray &modelName,
+                         QHash<QByteArray, bool> &visited,
+                         QStack<NOrmMetaModel> &stack)
 {
     visited[modelName] = true;
     NOrmMetaModel model = globalMetaModels[modelName];
@@ -253,11 +263,6 @@ static QStack<NOrmMetaModel> norm_sorted_metamodels()
     return stack;
 }
 
-/*!
-    Creates the database tables for all registered models.
-
-    \return true if all the tables were created, false otherwise.
-*/
 bool NOrm::createTables()
 {
     bool result = true;
@@ -288,7 +293,7 @@ NOrmMetaModel NOrm::metaModel(const char *name)
     if (globalMetaModels.contains(name))
         return globalMetaModels.value(name);
 
-    // otherwise, try to find a model anyway
+    // 直接去全局做名字匹配
     foreach (QByteArray modelName, globalMetaModels.keys()) {
         if (qstricmp(name, modelName.data()) == 0)
             return globalMetaModels.value(modelName);

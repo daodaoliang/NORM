@@ -2,7 +2,6 @@
 #define NORM_WHERE_P_H
 
 #include <QSharedData>
-
 #include "NOrmWhere.h"
 
 class NOrmWherePrivate : public QSharedData

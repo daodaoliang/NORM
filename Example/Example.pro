@@ -3,7 +3,7 @@ QT += sql
 
 CONFIG += c++11 console
 CONFIG -= app_bundle
-TARGET = QtORM_Example
+TARGET = orm_example
 DEFINES += QT_DEPRECATED_WARNINGS
 
 # 引入第三方库

@@ -26,7 +26,7 @@ class TestTable: public NOrmModel {
     Q_CLASSINFO("testFieldString","primary_key=true max_length=45")
 
 public:
-    TestTable(QObject *parent=0);
+    TestTable(QObject *parent=nullptr);
 
 public:
     /***************** setter && getter ********************/
